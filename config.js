@@ -1,4 +1,4 @@
 window.MT_CONFIG = {
-  supabaseUrl: "https://iwngilmutcnpwxfcwini.supabase.co"
-  publishableKey: 'sb_publishable_vYio_RsnyYbpb4ev4wjsGQ_y7uCP58i'
+  supabaseUrl: 'https://iwngilmutcnpwxfcwini.supabase.co',
+  publishableKey: 'PASTE_YOUR_SB_PUBLISHABLE_KEY_HERE'
 };
