@@ -1,29 +1,34 @@
-# MT56251 Team Work Management – Online V3 (Supabase)
+# MT56251 Online V3.3 — Admin User Management
 
-## สถานะ
-เว็บต้นแบบสำหรับทดสอบด้วยข้อมูลจำลอง **ไม่ใช่ระบบ Production ที่ผ่านการทดสอบความปลอดภัยแล้ว** ใช้ GitHub Pages เป็น frontend และ Supabase เป็น backend ไม่มี Server ที่ต้องเปิดเอง
+เวอร์ชันนี้พัฒนาต่อจาก V3.2 โดยเก็บ `tasks`, `comments`, `profiles` และบัญชี Supabase เดิมไว้ทั้งหมด ไม่ต้องสร้างโปรเจกต์ใหม่
 
-## วิธีติดตั้ง
-1. เปิด `config.js` แล้วแทน `PASTE_YOUR_SB_PUBLISHABLE_KEY_HERE` ด้วย Publishable Key (`sb_publishable_...`) จาก Supabase → Settings → API Keys ห้ามใช้ `sb_secret_`, service_role หรือรหัสผ่านฐานข้อมูล
-2. อัปโหลด `index.html`, `app.js`, `config.js` ไปยัง root ของ GitHub Repository `MT56251-Team-Work` (ไฟล์ `README_TH.md` เพิ่มได้)
-3. ไป GitHub → Settings → Pages → Deploy from a branch → main / (root) → Save
-4. ที่ Supabase → Authentication → URL Configuration ตั้ง Site URL เป็น `https://pacharapoltu92280.github.io/MT56251-Team-Work/` และเพิ่ม Redirect URL เดียวกัน (ตรวจสอบชื่อบัญชี GitHub และ URL ที่เผยแพร่จริง)
-5. เปิด URL GitHub Pages และเข้าสู่ระบบด้วยบัญชีที่สร้างไว้ใน Supabase Authentication → Users
+## ติดตั้ง (ทำตามลำดับครั้งเดียว)
 
-## ข้อจำกัดและความปลอดภัยสำคัญ
-- SQL ชุดเดิมที่สร้างก่อนหน้านี้มี RLS ขั้นต้น แต่ **ยังต้องตรวจสอบและแก้ก่อนใช้งานจริง** โดยเฉพาะการแก้ `created_by`/`assigned_to`, การแต่งตั้ง Admin ร่วม, และ Activity Logs ที่ยังไม่มี trigger บันทึกกิจกรรม
-- หน้า Admin ใน V3 เป็นคำแนะนำ ไม่ได้มีระบบเพิ่มบัญชีหรือเปลี่ยน Role ผ่านเว็บ เพราะการสร้าง/รีเซ็ตรหัสผ่านผู้ใช้อื่นต้องทำบน backend ที่ปลอดภัย
-- Supabase Realtime สำหรับ Postgres Changes อาจต้องเปิดตาราง `tasks` และ `comments` ใน publication `supabase_realtime` ก่อน; หากไม่เปิด ผู้ใช้กด Refresh หน้าเพื่อดึงข้อมูลล่าสุดได้
-- RLS ไม่ใช่ระบบจำกัดคนในองค์กรอัตโนมัติ ต้องจำกัดการสมัครสมาชิกและตั้งค่าสิทธิ์ให้ถูกต้อง
-- GitHub Pages เป็นเว็บไซต์สาธารณะ: อย่าใส่รหัสผ่าน, Secret Key หรือข้อมูลงานภายในบริษัทลง GitHub
-- ใช้ข้อมูลจำลองจนกว่าจะได้รับอนุญาตจากบริษัทสำหรับ Cloud ภายนอก
-- Supabase Free อาจมีข้อจำกัดและพักโปรเจกต์เมื่อไม่ใช้งาน ไม่ควรรับประกัน uptime 24/7
+1. **Supabase → SQL Editor → New query**: เปิดไฟล์ `MIGRATION_V3_3.sql` คัดลอกทั้งหมด กด Run (Database mode). SQL ไม่ลบข้อมูลเดิม
+2. **Supabase → Edge Functions → Deploy a new function → Via Editor**: ตั้งชื่อ `team-admin` แล้วแทนโค้ดทั้งหมดด้วย `supabase/functions/team-admin/index.ts` และ Deploy. ตรวจสอบให้เปิดการตรวจ JWT (Verify JWT) สำหรับ function นี้ตามการตั้งค่าโครงการ
+3. สร้าง Edge Function อีกตัวชื่อ `team-password-changed` โดยใช้ `supabase/functions/team-password-changed/index.ts` และ Deploy. เปิด Verify JWT เช่นเดียวกัน
+4. ฟังก์ชันทั้งสองใช้ environment variables ของ Supabase (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) **เฉพาะฝั่ง Edge Functions**. ห้ามใส่ service role ใน GitHub, HTML หรือ config.js
+5. **GitHub Repository**: อัปโหลด `index.html` และ `app.js` จาก ZIP นี้ไปแทนไฟล์เดิม แล้ว Commit changes. **เก็บ `config.js` เดิมไว้**. รอ Actions ผ่าน และรีเฟรชเว็บไซต์ด้วย Ctrl+F5
+6. Login Admin → เมนู Admin → `+ เพิ่มสมาชิก` เพื่อสร้างบัญชีด้วยอีเมลและรหัสผ่านชั่วคราว (อย่างน้อย 12 ตัวอักษร) หรือ `โหลดบัญชี` เพื่อเปลี่ยน Role, ตั้งรหัสใหม่, ระงับ/ปลดระงับ
 
-## ฟังก์ชันที่มี
-Login ด้วย Supabase Email/Password, Dashboard, Tasks (สร้าง/แก้ไข), Comments, Calendar, Gantt 14 วัน, Member list, Export CSV สำหรับ Excel และ subscription การเปลี่ยนแปลงแบบ Realtime เมื่อเปิด publication แล้ว
+## ข้อควรระวัง
 
-## การแก้ปัญหา
-- Login ไม่ได้: ตรวจสอบ Supabase Authentication → Users และ Email Confirmation
-- `permission denied` / `row-level security`: ตรวจสอบ SQL policies, grants และ profile ของบัญชี
-- ไม่เห็นข้อมูลอัปเดตทันที: ตรวจ publication ของ Supabase Realtime และรีเฟรชหน้า
-- ไม่โหลดหน้าเว็บ: ตรวจ GitHub Pages และ `config.js` ที่ root
+- ใช้ข้อมูลจำลองจนกว่าบริษัทจะอนุมัติการจัดเก็บข้อมูลจริงบน GitHub Pages / Supabase
+- หน้า GitHub Pages เป็นสาธารณะ; RLS และ Edge Function เป็นจุดบังคับสิทธิ์จริง ไม่ใช่การซ่อนปุ่ม
+- Admin สร้างบัญชีพร้อมยืนยันอีเมลให้โดยตรง: ต้องตรวจสอบว่าเป็นอีเมลของสมาชิกที่ได้รับอนุญาตก่อนสร้างและส่งรหัสผ่านชั่วคราวผ่านช่องทางส่วนตัว
+- ผู้ดูแลเปลี่ยนรหัสผ่านให้ Member โดยไม่ต้องส่งอีเมล; Member ถูกบังคับให้เปลี่ยนรหัสเมื่อ Login ครั้งแรก (ขั้นตอนนี้ขึ้นอยู่กับการโหลด profile และ function team-password-changed)
+- Admin เปลี่ยน Role ได้ แต่ระบบป้องกันการลดสิทธิ์ Admin คนสุดท้าย
+- บัญชีที่ถูกระงับอาจมี session เดิมค้างอยู่จนกว่าจะหมดอายุ: ทดสอบการเพิกถอน session ตามนโยบายก่อนใช้ข้อมูลจริง
+- การบันทึก Activity Logs และนโยบายการจัดการงานของ SQL เวอร์ชันก่อนหน้ายังไม่ผ่านการตรวจสอบความปลอดภัยแบบ Production; ต้องตรวจสอบเพิ่มเติมก่อนใช้ข้อมูลจริง
+- ห้ามแชร์ Secret Key, Service Role Key หรือรหัสผ่านกับผู้ใด และห้ามนำไปใส่ใน `config.js`
+
+## ทดสอบก่อนใช้งานจริง
+
+1. Admin เพิ่ม Member ทดลองหนึ่งบัญชี → Login จากเบราว์เซอร์อีกเครื่อง → เปลี่ยนรหัสผ่านชั่วคราว
+2. Member ไม่เห็น Admin menu และเรียก `team-admin` โดยตรงต้องได้ 403
+3. Admin เพิ่ม Admin ร่วม → Admin ร่วมเข้าใช้งานได้
+4. Member ไม่สามารถเปลี่ยน `role` ในฐานข้อมูลผ่าน API
+5. ลองระงับบัญชีทดสอบ และตรวจสอบการเข้าใช้งานใหม่
+6. ทดสอบ Calendar/Gantt/Tasks เดิมยังทำงาน และข้อมูลเดิมยังอยู่
+
+หมายเหตุ: ยังไม่ได้ Deploy ไปยัง Supabase/GitHub ของคุณโดยอัตโนมัติ; ต้องดำเนินการตามขั้นตอนข้างต้น

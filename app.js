@@ -50,8 +50,8 @@ function renderCalendar(){
  $('calendarGrid').innerHTML=html;
 }
 function renderGantt(){const days=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()+i);return dateOnly(d)});let h=`<div>Task</div>${days.map(d=>`<div>${d.slice(5)}</div>`).join('')}`;for(const t of tasks.filter(x=>x.start_date&&x.due_date)){h+=`<div title="${esc(t.title)}">${esc(t.title)}</div>`+days.map(d=>`<div class="${d>=t.start_date&&d<=t.due_date?'filled':''}">${d===t.start_date?'●':''}</div>`).join('')}$('ganttGrid').innerHTML=`<div class="gantt">${h}</div>`;}
-async function refresh(){if(!user)return;const [tr,mr,pr]=await Promise.all([db.from('tasks').select('*').order('created_at',{ascending:false}),db.from('profiles').select('id,display_name,role,user_color'),db.from('profiles').select('id,role,display_name').eq('id',user.id).single()]);if(tr.error||mr.error||pr.error){msg('โหลดข้อมูลไม่สำเร็จ: '+[tr.error,mr.error,pr.error].filter(Boolean).map(e=>e.message).join(' / '),true);return}tasks=tr.data||[];members=mr.data||[];profile=pr.data;$('identity').textContent=`${profile.display_name||user.email} (${profile.role})`;render();}
-async function signedIn(u){user=u;show('auth',!u);show('app',!!u);show('logout',!!u);show('setup',false);if(channel){await db.removeChannel(channel);channel=null}if(u){await refresh();channel=db.channel('mt56251-updates').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>refresh()).on('postgres_changes',{event:'*',schema:'public',table:'comments'},()=>{if(commentTask)loadComments()}).subscribe();}}
+async function refresh(){if(!user)return;const [tr,mr,pr]=await Promise.all([db.from('tasks').select('*').order('created_at',{ascending:false}),db.from('profiles').select('id,display_name,role,user_color'),db.from('profiles').select('id,role,display_name,must_change_password').eq('id',user.id).single()]);if(tr.error||mr.error||pr.error){msg('โหลดข้อมูลไม่สำเร็จ: '+[tr.error,mr.error,pr.error].filter(Boolean).map(e=>e.message).join(' / '),true);return}tasks=tr.data||[];members=mr.data||[];profile=pr.data;$('identity').textContent=`${profile.display_name||user.email} (${profile.role})`;render();}
+async function signedIn(u){user=u;show('auth',!u);show('app',!!u);show('logout',!!u);show('selfPassword',!!u);show('setup',false);if(channel){await db.removeChannel(channel);channel=null}if(u){await refresh();if(profile?.must_change_password)openSelfPassword(true);channel=db.channel('mt56251-updates').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>refresh()).on('postgres_changes',{event:'*',schema:'public',table:'comments'},()=>{if(commentTask)loadComments()}).subscribe();}}
 function openTask(id){const t=tasks.find(x=>x.id===id);$('taskForm').reset();$('taskId').value=t?.id||'';$('dialogTitle').textContent=t?'แก้ไขงาน':'เพิ่มงาน';for(const k of ['title','description','category','status','progress','start_date','due_date'])if(t&&t[k]!=null)$(k).value=t[k];$('assigned_to').innerHTML='<option value="">ไม่ระบุ</option>'+members.map(m=>`<option value="${m.id}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');$('assigned_to').value=t?.assigned_to||'';$('taskMsg').textContent='';$('taskDialog').showModal();}
 async function loadComments(){if(!commentTask)return;const {data,error}=await db.from('comments').select('*').eq('task_id',commentTask).order('created_at');$('commentsList').innerHTML=error?esc(error.message):(data||[]).map(c=>`<p><b>${esc(memberName(c.author_id))}</b> <small>${new Date(c.created_at).toLocaleString('th-TH')}</small><br>${esc(c.message)}</p>`).join('')||'<p class="muted">ยังไม่มีความคิดเห็น</p>';}
 async function openComments(id){commentTask=id;$('commentTitle').textContent='Comments: '+(tasks.find(t=>t.id===id)?.title||'');$('commentMsg').textContent='';$('commentsDialog').showModal();await loadComments();}
@@ -60,10 +60,79 @@ $('loginForm').onsubmit=async e=>{e.preventDefault();$('loginMsg').textContent='
 $('forgot').onclick=async()=>{const email=$('email').value.trim();if(!email){$('loginMsg').textContent='กรอก Email ก่อน';return}const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});$('loginMsg').textContent=error?error.message:'หากบัญชีนี้มีอยู่ ระบบจะส่งอีเมลรีเซ็ต (ต้องตั้งค่า URL ใน Supabase ก่อน)';};
 $('cancelName').onclick=()=>$('nameDialog').close();
 $('nameForm').onsubmit=async e=>{e.preventDefault();const name=$('newDisplayName').value.trim();if(!name){$('nameMsg').textContent='กรุณากรอกชื่อ';return}const {error}=await db.from('profiles').update({display_name:name}).eq('id',user.id);if(error){$('nameMsg').textContent=error.message;return}$('nameDialog').close();await refresh();};
-$('logout').onclick=()=>db.auth.signOut();document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>view(b.dataset.view));$('newTask').onclick=()=>openTask(null);$('cancelTask').onclick=()=>$('taskDialog').close();$('search').oninput=render;$('filter').onchange=render;
+$('logout').onclick=()=>db.auth.signOut();document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{view(b.dataset.view);if(b.dataset.view==='admin')void loadAdminUsers();});$('newTask').onclick=()=>openTask(null);$('cancelTask').onclick=()=>$('taskDialog').close();$('search').oninput=render;$('filter').onchange=render;
 $('taskForm').onsubmit=async e=>{e.preventDefault();const id=$('taskId').value;const data={title:$('title').value.trim(),description:$('description').value,category:$('category').value,status:$('status').value,progress:Number($('progress').value),start_date:$('start_date').value||null,due_date:$('due_date').value||null,assigned_to:$('assigned_to').value||null};if(data.start_date&&data.due_date&&data.start_date>data.due_date){$('taskMsg').textContent='Due Date ต้องไม่ก่อน Start Date';return}const result=id?await db.from('tasks').update(data).eq('id',id):await db.from('tasks').insert({...data,created_by:user.id});if(result.error){$('taskMsg').textContent=result.error.message;return}$('taskDialog').close();await refresh();};
 document.addEventListener('click',e=>{const a=e.target.closest('[data-edit]'),b=e.target.closest('[data-comment]');if(a)openTask(a.dataset.edit);if(b)openComments(b.dataset.comment);if(e.target.closest('[data-edit-name]')){$('newDisplayName').value=profile?.display_name||'';$('nameMsg').textContent='';$('nameDialog').showModal()}});$('closeComments').onclick=()=>{$('commentsDialog').close();commentTask=null};$('commentForm').onsubmit=async e=>{e.preventDefault();const message=$('commentText').value.trim();if(!message)return;const {error}=await db.from('comments').insert({task_id:commentTask,author_id:user.id,message});if(error){$('commentMsg').textContent=error.message;return}$('commentText').value='';await loadComments();};
 $('prevMonth').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);renderCalendar()};$('nextMonth').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);renderCalendar()};
 $('export').onclick=()=>{const cols=['title','description','category','status','progress','start_date','due_date','assigned_to','created_at'];const csv='\ufeff'+[cols.join(','),...tasks.map(t=>cols.map(k=>'"'+String(t[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='MT56251_Tasks_'+today()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+
+// Admin actions are authorized again on the server. Never put a secret key in this file.
+async function adminRequest(payload){
+ const {data:{session},error:sessionError}=await db.auth.getSession();
+ if(sessionError||!session?.access_token)throw Error('กรุณา Login ใหม่');
+ const endpoint=cfg.supabaseUrl.replace(/\/$/,'')+'/functions/v1/team-admin';
+ const response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json','apikey':cfg.publishableKey,'Authorization':'Bearer '+session.access_token},body:JSON.stringify(payload)});
+ const result=await response.json().catch(()=>({error:'Invalid server response'}));
+ if(!response.ok)throw Error(result.error||'Request failed ('+response.status+')');
+ return result;
+}
+async function loadAdminUsers(){
+ if(profile?.role!=='admin')return;
+ $('adminMsg').textContent='กำลังโหลด...';
+ try{
+  const result=await adminRequest({action:'list'});
+  const rows=result.users||[];
+  $('adminUsers').innerHTML='<table><thead><tr><th>ชื่อ / Email</th><th>Role</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody>'+rows.map(x=>{
+   const m=members.find(v=>v.id===x.id)||{};
+   return `<tr><td><b>${esc(m.display_name||x.email||x.id.slice(0,8))}</b><div class="muted">${esc(x.email||'')}</div></td><td>${esc(m.role||'member')}</td><td>${x.banned_until&&new Date(x.banned_until)>new Date()?'ระงับ':'ใช้งาน'}</td><td><button class="secondary" data-admin-action="reset_password" data-user-id="${x.id}">ตั้งรหัสใหม่</button> <button class="secondary" data-admin-action="set_role" data-user-id="${x.id}">เปลี่ยน Role</button> <button class="secondary" data-admin-action="${x.banned_until&&new Date(x.banned_until)>new Date()?'unban':'ban'}" data-user-id="${x.id}">${x.banned_until&&new Date(x.banned_until)>new Date()?'ปลดระงับ':'ระงับ'}</button></td></tr>`;
+  }).join('')+'</tbody></table>';
+  $('adminMsg').textContent=`บัญชี ${rows.length} รายการ`;
+ }catch(e){$('adminMsg').textContent=e.message;}
+}
+function openAdminDialog(action,id=''){
+ $('adminForm').reset();$('adminAction').value=action;$('adminTargetId').value=id;
+ $('adminDialogMsg').textContent='';
+ $('adminCreateFields').classList.toggle('hidden',action!=='create');
+ $('adminRoleField').classList.toggle('hidden',!['create','set_role'].includes(action));
+ $('adminPasswordField').classList.toggle('hidden',!['create','reset_password'].includes(action));
+ $('adminDialogTitle').textContent=action==='create'?'เพิ่มบัญชี':action==='set_role'?'เปลี่ยนสิทธิ์':'ตั้งรหัสผ่านใหม่';
+ $('adminDialog').showModal();
+}
+$('adminReload').onclick=loadAdminUsers;
+$('adminAdd').onclick=()=>openAdminDialog('create');
+$('adminCancel').onclick=()=>$('adminDialog').close();
+document.addEventListener('click',async e=>{
+ const btn=e.target.closest('[data-admin-action]');if(!btn)return;
+ const action=btn.dataset.adminAction,id=btn.dataset.userId;
+ if(action==='reset_password'||action==='set_role'){openAdminDialog(action,id);return;}
+ if(!confirm(action==='ban'?'ยืนยันระงับบัญชีนี้?':'ยืนยันปลดระงับบัญชีนี้?'))return;
+ try{await adminRequest({action,userId:id});await loadAdminUsers();}catch(err){$('adminMsg').textContent=err.message;}
+});
+$('adminForm').onsubmit=async e=>{
+ e.preventDefault();const action=$('adminAction').value;
+ const data={action,userId:$('adminTargetId').value,email:$('adminEmail').value.trim(),name:$('adminName').value.trim(),role:$('adminRole').value,password:$('adminPassword').value};
+ $('adminDialogMsg').textContent='กำลังบันทึก...';
+ try{await adminRequest(data);$('adminDialog').close();await refresh();await loadAdminUsers();}
+ catch(err){$('adminDialogMsg').textContent=err.message;}
+};
+let forcePassword=false;
+function openSelfPassword(required=false){forcePassword=required;$('changePasswordMsg').textContent=required?'กรุณาตั้งรหัสผ่านใหม่ก่อนทำงาน':' ';$('changePasswordCancel').disabled=required;$('changePasswordDialog').showModal();}
+$('selfPassword').onclick=()=>openSelfPassword(false);
+$('changePasswordCancel').onclick=()=>{if(!forcePassword)$('changePasswordDialog').close()};
+$('changePasswordForm').onsubmit=async e=>{
+ e.preventDefault();const password=$('selfNewPassword').value;
+ if(password.length<12){$('changePasswordMsg').textContent='ต้องมีอย่างน้อย 12 ตัวอักษร';return;}
+ const {error}=await db.auth.updateUser({password});if(error){$('changePasswordMsg').textContent=error.message;return;}
+ if(forcePassword){
+  // Server verifies the caller is this user before clearing the flag.
+  try{
+   const {data:{session}}=await db.auth.getSession();
+   const resp=await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/functions/v1/team-password-changed',{method:'POST',headers:{'Content-Type':'application/json','apikey':cfg.publishableKey,'Authorization':'Bearer '+session.access_token},body:'{}'});
+   if(!resp.ok)throw Error('ไม่สามารถยืนยันการเปลี่ยนรหัสผ่านได้');
+  }catch(err){$('changePasswordMsg').textContent=err.message;return;}
+ }
+ forcePassword=false;$('changePasswordDialog').close();$('selfNewPassword').value='';await refresh();
+};
+
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
