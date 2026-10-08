@@ -14,21 +14,38 @@ const q=$('search').value.toLowerCase(),f=$('filter').value;$('taskTable').inner
 $('memberTable').innerHTML=`<table><tr><th>ชื่อ</th><th>Role</th><th>สี</th><th>จัดการ</th></tr>${members.map(m=>`<tr><td>${esc(m.display_name||m.id.slice(0,8))}</td><td>${esc(m.role)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${/^#[0-9a-f]{6}$/i.test(m.user_color)?m.user_color:'#2563eb'}"></span></td><td>${m.id===user?.id?'<button class="secondary" data-edit-name="1">✎ แก้ไขชื่อ</button>':''}</td></tr>`).join('')}</table>`;
 show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');renderCalendar();renderGantt();}
 function renderCalendar(){
- const y=month.getFullYear(),m=month.getMonth();$('monthTitle').textContent=month.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
- const first=new Date(y,m,1),offset=first.getDay(),last=new Date(y,m+1,0),count=Math.ceil((offset+last.getDate())/7)*7;
- const base=new Date(y,m,1-offset);let html=['อา','จ','อ','พ','พฤ','ศ','ส'].map(x=>`<div class="muted cal-head">${x}</div>`).join('');
+ const y=month.getFullYear(),m=month.getMonth();
+ $('monthTitle').textContent=month.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+ const first=new Date(y,m,1),offset=first.getDay(),last=new Date(y,m+1,0);
+ const count=Math.ceil((offset+last.getDate())/7)*7;
+ const base=new Date(y,m,1-offset);
  const colors={'Pending':'#718096','In Progress':'#2563eb','Completed':'#138568','On Hold':'#c27b17'};
+ let html=['อา','จ','อ','พ','พฤ','ศ','ส'].map(x=>`<div class="muted cal-head">${x}</div>`).join('');
  for(let w=0;w<count/7;w++){
-   const start=new Date(base);start.setDate(base.getDate()+w*7);const end=new Date(start);end.setDate(start.getDate()+6);
-   const startKey=dateOnly(start),endKey=dateOnly(end);
-   for(let d=0;d<7;d++){const date=new Date(start);date.setDate(start.getDate()+d);html+=`<div class="day ${date.getMonth()===m?'':'outside'}"><b>${date.getDate()}</b></div>`;}
-   const overlaps=tasks.filter(t=>{const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return a&&b&&a<=endKey&&b>=startKey;}).sort((a,b)=>(a.start_date||a.due_date).localeCompare(b.start_date||b.due_date)||String(a.title).localeCompare(String(b.title)));
-   const occupied=[];let bars='';for(const t of overlaps){const a=t.start_date||t.due_date,b=t.due_date||t.start_date;let lane=occupied.findIndex(x=>x<a);if(lane<0){lane=occupied.length;occupied.push(b)}else occupied[lane]=b;
-     const left=Math.max(0,Math.round((new Date(a+'T12:00:00')-new Date(startKey+'T12:00:00'))/86400000));
-     const right=Math.min(6,Math.round((new Date(b+'T12:00:00')-new Date(startKey+'T12:00:00'))/86400000));
-     const color=colors[t.status]||'#2563eb';bars+=`<div class="cal-span" style="grid-column:${left+1}/${right+2};grid-row:${lane+1};background:${color}" title="${esc(t.title)} | ${esc(a)} → ${esc(b)} | ${esc(t.status)}">${left===0&&a<startKey?'↤ ':''}${esc(t.title)}${right===6&&b>endKey?' ↦':''}</div>`;
-   }
-   html+=`<div class="cal-week" style="--lanes:${Math.max(1,occupied.length)}">${bars}</div>`;
+  const start=new Date(base);start.setDate(base.getDate()+w*7);
+  const end=new Date(start);end.setDate(start.getDate()+6);
+  const startKey=dateOnly(start),endKey=dateOnly(end);
+  const overlaps=tasks.filter(t=>{const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return a&&b&&a<=endKey&&b>=startKey;})
+    .sort((a,b)=>(a.start_date||a.due_date).localeCompare(b.start_date||b.due_date)||String(a.title).localeCompare(String(b.title)));
+  const occupied=[];let bars='';
+  for(const t of overlaps){
+   const a=t.start_date||t.due_date,b=t.due_date||t.start_date;
+   const lane=occupied.findIndex(endDay=>endDay<a);
+   const slot=lane<0?occupied.length:lane;
+   if(lane<0)occupied.push(b);else occupied[lane]=b;
+   // Date-only arithmetic in UTC avoids DST offsets.
+   const dayDiff=(x,z)=>(Date.parse(x+'T00:00:00Z')-Date.parse(z+'T00:00:00Z'))/86400000;
+   const left=Math.max(0,dayDiff(a,startKey)),right=Math.min(6,dayDiff(b,startKey));
+   const color=colors[t.status]||'#2563eb';
+   bars+=`<div class="cal-span" style="grid-column:${left+1}/${right+2};grid-row:${slot+1};background:${color}" title="${esc(t.title)} | ${esc(a)} → ${esc(b)} | ${esc(t.status)}">${a<startKey?'↤ ':''}${esc(t.title)}${b>endKey?' ↦':''}</div>`;
+  }
+  const lanes=Math.max(1,occupied.length);
+  html+=`<div class="cal-week" style="--lanes:${lanes}">`;
+  for(let d=0;d<7;d++){
+   const date=new Date(start);date.setDate(start.getDate()+d);
+   html+=`<div class="day ${date.getMonth()===m?'':'outside'}" style="grid-column:${d+1};grid-row:1"><b>${date.getDate()}</b></div>`;
+  }
+  html+=`<div class="cal-events" style="--lanes:${lanes}">${bars}</div></div>`;
  }
  $('calendarGrid').innerHTML=html;
 }
