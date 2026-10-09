@@ -52,44 +52,21 @@ function renderCalendar(){
  const first=new Date(y,m,1),offset=first.getDay(),last=new Date(y,m+1,0);
  const count=Math.ceil((offset+last.getDate())/7)*7;
  const base=new Date(y,m,1-offset);
- const colors={'Pending':'#718096','In Progress':'#2563eb','Completed':'#138568','On Hold':'#c27b17'};
+ const active=tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed');
  let html=['อา','จ','อ','พ','พฤ','ศ','ส'].map(x=>`<div class="muted cal-head">${x}</div>`).join('');
- for(let w=0;w<count/7;w++){
-  const start=new Date(base);start.setDate(base.getDate()+w*7);
-  const end=new Date(start);end.setDate(start.getDate()+6);
-  const startKey=dateOnly(start),endKey=dateOnly(end);
-  
-const overlaps = tasks.filter(t => {
-  // ไม่แสดงงานที่ Completed ใน Calendar
-  if (String(t.status || '').trim().toLowerCase() === 'completed') {
-    return false;
-  }
-
-  const a = t.start_date || t.due_date;
-  const b = t.due_date || t.start_date;
-
-  return a && b && a <= endKey && b >= startKey;
-})
-    .sort((a,b)=>(a.start_date||a.due_date).localeCompare(b.start_date||b.due_date)||String(a.title).localeCompare(String(b.title)));
-  const occupied=[];let bars='';
-  for(const t of overlaps){
+ for(let i=0;i<count;i++){
+  const date=new Date(base);date.setDate(base.getDate()+i);
+  const key=dateOnly(date);
+  const daily=active.filter(t=>{
    const a=t.start_date||t.due_date,b=t.due_date||t.start_date;
-   const lane=occupied.findIndex(endDay=>endDay<a);
-   const slot=lane<0?occupied.length:lane;
-   if(lane<0)occupied.push(b);else occupied[lane]=b;
-   // Date-only arithmetic in UTC avoids DST offsets.
-   const dayDiff=(x,z)=>(Date.parse(x+'T00:00:00Z')-Date.parse(z+'T00:00:00Z'))/86400000;
-   const left=Math.max(0,dayDiff(a,startKey)),right=Math.min(6,dayDiff(b,startKey));
-   const color=memberColor(t.assigned_to);
-   bars+=`<div class="cal-span" data-task-detail="${esc(t.id)}" tabindex="0" role="button" style="grid-column:${left+1}/${right+2};grid-row:${slot+1};background:${color}" title="${esc(t.title)} | ผู้รับผิดชอบ: ${esc(taskOwnerLabel(t))} | ${esc(taskSchedule(t))} | ${esc(t.status)}">${a<startKey?'↤ ':''}${esc(t.title)} (${esc(taskOwnerLabel(t))})${b>endKey?' ↦':''}</div>`;
-  }
-  const lanes=Math.max(1,occupied.length);
-  html+=`<div class="cal-week" style="--lanes:${lanes}">`;
-  for(let d=0;d<7;d++){
-   const date=new Date(start);date.setDate(start.getDate()+d);
-   html+=`<div class="day ${date.getMonth()===m?'':'outside'}" style="grid-column:${d+1};grid-row:1"><b>${date.getDate()}</b></div>`;
-  }
-  html+=`<div class="cal-events" style="--lanes:${lanes}">${bars}</div></div>`;
+   return a&&b&&a<=key&&b>=key;
+  }).sort((a,b)=>(a.start_time||'').localeCompare(b.start_time||'')||String(a.title).localeCompare(String(b.title)));
+  const items=daily.map(t=>{
+   const start=t.start_date||t.due_date;
+   const time=start===key&&t.start_time?String(t.start_time).slice(0,5)+' · ':'';
+   return `<button type="button" class="cal-daily-task" data-task-detail="${esc(t.id)}" style="background:${memberColor(t.assigned_to)}" title="${esc(t.title)} | ${esc(taskOwnerLabel(t))} | ${esc(taskSchedule(t))} | ${esc(t.status)}">${esc(time+t.title)} <span class="cal-daily-owner">(${esc(taskOwnerLabel(t))})</span></button>`;
+  }).join('');
+  html+=`<div class="day cal-daily-day ${date.getMonth()===m?'':'outside'}"><b>${date.getDate()}</b><div class="cal-daily-list">${items}</div></div>`;
  }
  $('calendarGrid').classList.add('calendar');$('calendarGrid').innerHTML=html;
 }

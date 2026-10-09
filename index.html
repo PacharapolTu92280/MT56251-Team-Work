@@ -97,6 +97,17 @@ input:focus,select:focus,textarea:focus{outline:2px solid #f2b6c3;outline-offset
 #calendar #calendarGrid{width:100%}
 @media(max-width:1050px){.dashboard-overview{grid-template-columns:minmax(0,1fr)}#dashboard #remainingTasks{width:100%}}
 @media(max-width:800px){.dashboard-overview>.dashboard-charts{grid-template-columns:1fr}}
+
+/* V3.7.2: tasks appear inside each date cell, not as cross-day bars. */
+#calendarGrid.calendar{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;align-items:stretch}
+#calendarGrid .cal-daily-day{min-width:0;min-height:155px;height:215px;overflow:hidden;display:flex;flex-direction:column;padding:5px;position:relative}
+#calendarGrid .cal-daily-day>b{flex:none;margin-bottom:5px}
+#calendarGrid .cal-daily-list{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;display:flex;flex-direction:column;gap:3px}
+#calendarGrid .cal-daily-task{display:block;flex:none;width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere;text-align:left;border:0;border-radius:4px;padding:5px 4px;color:white;font-size:11px;line-height:1.25;cursor:pointer;box-shadow:none}
+#calendarGrid .cal-daily-task:hover{filter:brightness(.91);box-shadow:none}
+#calendarGrid .cal-daily-task:focus-visible{outline:2px solid #d7193f;outline-offset:1px}
+#calendarGrid .cal-daily-owner{opacity:.92}
+@media(max-width:750px){#calendarGrid.calendar{grid-template-columns:repeat(7,minmax(105px,1fr));min-width:735px}#calendar>.calendar-layout{overflow-x:auto}#calendarGrid .cal-daily-day{height:210px}}
 </style></head><body><header><h1>MT56251 | Team Work Management</h1><div class="row"><span id="identity"></span><div class="notif-wrap"><button id="notifBell" type="button" class="secondary" aria-label="การแจ้งเตือน" aria-expanded="false">🔔 <span id="notifCount" class="notif-count hidden">0</span></button><div id="notifPanel" class="notif-panel hidden"><div class="notif-header"><strong>การแจ้งเตือน</strong><button id="notifRefresh" type="button" class="secondary">รีเฟรช</button></div><p id="notifInfo" class="muted"></p><div id="notifList"></div><button id="notifReadAll" type="button" class="secondary">อ่านทั้งหมดแล้ว</button></div></div><button id="selfPassword" class="secondary hidden">เปลี่ยนรหัสผ่าน</button><button id="logout" class="secondary hidden">ออกจากระบบ</button></div></header><main>
 <section id="setup"><h2>เชื่อมต่อ Supabase</h2><p>กรอก Publishable Key ในไฟล์ <code>config.js</code> ก่อนเปิดใช้งาน ห้ามใช้ Secret Key หรือ Database Password</p><p id="setupMsg" class="error"></p></section>
 <section id="auth" class="login hidden"><h2>เข้าสู่ระบบ MT56251</h2><form id="loginForm"><label>Email</label><input id="email" type="email" required autocomplete="username"><label>Password</label><input id="password" type="password" required autocomplete="current-password"><p><button type="submit">เข้าสู่ระบบ</button> <button type="button" class="secondary" id="forgot">ส่งอีเมลรีเซ็ตรหัสผ่าน</button></p></form><p id="loginMsg" class="error"></p><p class="muted">ผู้ดูแลสร้างบัญชีสมาชิกผ่าน Supabase Authentication ก่อน ระบบนี้ไม่มีการเปิดสมัครบัญชีสาธารณะ</p></section>
