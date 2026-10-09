@@ -12,6 +12,7 @@ function memberName(id){const m=members.find(x=>x.id===id);return m?m.display_na
 function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> <span class="task-owner-inline">(${esc(taskOwnerLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button></td></tr>`).join('')}</tbody></table>`}
 function render(){const total=tasks.length,done=tasks.filter(t=>t.status==='Completed').length,late=tasks.filter(t=>t.due_date&&t.due_date<today()&&t.status!=='Completed').length,doing=tasks.filter(t=>t.status==='In Progress').length;
 $('metrics').innerHTML=[['Total Tasks',total],['In Progress',doing],['Completed',done],['Overdue',late]].map(([k,v])=>`<div class="metric"><small>${k}</small><strong>${v}</strong></div>`).join('');
+ renderDashboardCharts();
 $('upcoming').innerHTML=table(tasks.filter(t=>t.due_date&&t.status!=='Completed').sort((a,b)=>a.due_date.localeCompare(b.due_date)).slice(0,8));
 const q=$('search').value.trim().toLowerCase(),f=$('filter').value,owner=$('ownerFilter').value;
  const ownerSelect=$('ownerFilter');
@@ -21,6 +22,28 @@ const q=$('search').value.trim().toLowerCase(),f=$('filter').value,owner=$('owne
  $('taskTable').innerHTML=table(tasks.filter(t=>(!f||t.status===f)&&(!owner||(owner==='__unassigned__'?!t.assigned_to:t.assigned_to===owner))&&(!q||[t.title,t.description,t.category,taskOwnerLabel(t)].some(x=>String(x||'').toLowerCase().includes(q)))));
 $('memberTable').innerHTML=`<table><tr><th>ชื่อ</th><th>Role</th><th>สี</th><th>จัดการ</th></tr>${members.map(m=>`<tr><td>${esc(m.display_name||m.id.slice(0,8))}</td><td>${esc(m.role)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${/^#[0-9a-f]{6}$/i.test(m.user_color)?m.user_color:'#2563eb'}"></span></td><td>${m.id===user?.id?'<button class="secondary" data-edit-name="1">✎ แก้ไขชื่อ</button> <button class="secondary" data-edit-color="1">🎨 เปลี่ยนสี</button>':''}</td></tr>`).join('')}</table>`;
 show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');renderCalendar();renderGantt();renderRemainingTasks();}
+
+// Dashboard charts use live tasks already loaded from Supabase. No external chart dependency.
+function renderDashboardCharts(){
+ const statusOrder=['Pending','In Progress','On Hold','Completed'];
+ const statusColors=['#98a2b3','#4478d7','#e7a83e','#2caa83'];
+ const statusCounts=statusOrder.map(s=>tasks.filter(t=>t.status===s).length);
+ const max=Math.max(1,...statusCounts);
+ const statusHtml=statusOrder.map((s,i)=>`<div class="status-chart-row"><span>${esc(s)}</span><div class="status-track"><div class="status-fill" style="width:${100*statusCounts[i]/max}%;background:${statusColors[i]}"></div></div><strong>${statusCounts[i]}</strong></div>`).join('');
+ $('statusChart').innerHTML=statusHtml;
+ const categoryOrder=['Daily Operations','Project Response','Process Improvement'];
+ const categoryColors=['#334155','#d7193f','#386be0','#20a478','#e7a83e','#8b5cf6'];
+ const counts=new Map();
+ for(const t of tasks){const name=String(t.category||'ไม่ระบุประเภท');counts.set(name,(counts.get(name)||0)+1);}
+ const names=[...categoryOrder.filter(x=>counts.has(x)),...Array.from(counts.keys()).filter(x=>!categoryOrder.includes(x)).sort()];
+ const total=tasks.length;
+ let running=0;
+ const slices=names.map((name,i)=>{const value=counts.get(name);const start=running;running+=value;return `${categoryColors[i%categoryColors.length]} ${100*start/total}% ${100*running/total}%`;});
+ const ring=total?`conic-gradient(${slices.join(',')})`:'conic-gradient(#e4e7ec 0% 100%)';
+ const legend=names.map((name,i)=>`<div class="category-legend-row"><span class="chart-swatch" style="background:${categoryColors[i%categoryColors.length]}"></span><span>${esc(name)}</span><strong>${counts.get(name)}</strong></div>`).join('');
+ $('categoryChart').innerHTML=`<div class="donut-chart" style="background:${ring}" role="img" aria-label="สัดส่วนประเภทงาน"><div class="donut-hole"><strong>${total}</strong><small>Tasks</small></div></div><div class="category-legend">${legend||'<span class="muted">ยังไม่มีงาน</span>'}</div>`;
+}
+
 function renderCalendar(){
  const y=month.getFullYear(),m=month.getMonth();
  $('monthTitle').textContent=month.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
@@ -33,14 +56,7 @@ function renderCalendar(){
   const start=new Date(base);start.setDate(base.getDate()+w*7);
   const end=new Date(start);end.setDate(start.getDate()+6);
   const startKey=dateOnly(start),endKey=dateOnly(end);
- 
-const overlaps=tasks.filter(t=>{
-  if(t.status==='Completed') return false;
-  const a=t.start_date||t.due_date;
-  const b=t.due_date||t.start_date;
-  return a&&b&&a<=endKey&&b>=startKey;
-})
-
+  const overlaps=tasks.filter(t=>{const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return a&&b&&a<=endKey&&b>=startKey;})
     .sort((a,b)=>(a.start_date||a.due_date).localeCompare(b.start_date||b.due_date)||String(a.title).localeCompare(String(b.title)));
   const occupied=[];let bars='';
   for(const t of overlaps){

@@ -65,11 +65,29 @@ input:focus,select:focus,textarea:focus{outline:2px solid #f2b6c3;outline-offset
 .gantt>div{background:#f3f4f6}
 /* Do not override member-owned colors on task bars, calendar spans or Gantt filled cells. */
 @media(max-width:650px){header{padding:14px}header h1{font-size:17px}}
-.task-owner-inline{font-size:11px;color:#697586;font-weight:500}.cal-span .task-owner-inline{color:inherit}</style></head><body><header><h1>MT56251 | Team Work Management</h1><div class="row"><span id="identity"></span><button id="selfPassword" class="secondary hidden">เปลี่ยนรหัสผ่าน</button><button id="logout" class="secondary hidden">ออกจากระบบ</button></div></header><main>
+.task-owner-inline{font-size:11px;color:#697586;font-weight:500}.cal-span .task-owner-inline{color:inherit}
+/* V3.5.7: Dashboard charts */
+.dashboard-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:18px 0 24px}
+.chart-card{border:1px solid #e4e6eb;border-radius:10px;padding:18px;background:#fff;min-width:0}
+.chart-card h3{font-size:15px;margin:0 0 18px;color:#252b34}
+.status-chart-row{display:grid;grid-template-columns:105px minmax(0,1fr) 30px;gap:10px;align-items:center;margin:13px 0;font-size:12px}
+.status-chart-row strong{text-align:right;font-variant-numeric:tabular-nums}
+.status-track{height:18px;background:#f1f2f4;border-radius:3px;overflow:hidden}
+.status-fill{height:100%;border-radius:3px;transition:width .2s ease}
+#categoryChart{display:flex;align-items:center;gap:24px;min-height:174px}
+.donut-chart{width:160px;height:160px;border-radius:50%;flex:none;display:grid;place-items:center}
+.donut-hole{background:white;width:104px;height:104px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.donut-hole strong{font-size:28px}.donut-hole small{font-size:12px;color:#667085}
+.category-legend{min-width:0;flex:1}.category-legend-row{display:flex;align-items:center;gap:8px;font-size:12px;margin:10px 0;overflow-wrap:anywhere}
+.category-legend-row span:nth-child(2){flex:1;min-width:0}.category-legend-row strong{margin-left:auto}
+.chart-swatch{height:10px;width:10px;border-radius:50%;flex:none}
+@media(max-width:800px){.dashboard-charts{grid-template-columns:1fr}}
+@media(max-width:480px){#categoryChart{flex-direction:column;align-items:flex-start}.donut-chart{align-self:center}}
+</style></head><body><header><h1>MT56251 | Team Work Management</h1><div class="row"><span id="identity"></span><button id="selfPassword" class="secondary hidden">เปลี่ยนรหัสผ่าน</button><button id="logout" class="secondary hidden">ออกจากระบบ</button></div></header><main>
 <section id="setup"><h2>เชื่อมต่อ Supabase</h2><p>กรอก Publishable Key ในไฟล์ <code>config.js</code> ก่อนเปิดใช้งาน ห้ามใช้ Secret Key หรือ Database Password</p><p id="setupMsg" class="error"></p></section>
 <section id="auth" class="login hidden"><h2>เข้าสู่ระบบ MT56251</h2><form id="loginForm"><label>Email</label><input id="email" type="email" required autocomplete="username"><label>Password</label><input id="password" type="password" required autocomplete="current-password"><p><button type="submit">เข้าสู่ระบบ</button> <button type="button" class="secondary" id="forgot">ส่งอีเมลรีเซ็ตรหัสผ่าน</button></p></form><p id="loginMsg" class="error"></p><p class="muted">ผู้ดูแลสร้างบัญชีสมาชิกผ่าน Supabase Authentication ก่อน ระบบนี้ไม่มีการเปิดสมัครบัญชีสาธารณะ</p></section>
 <div id="app" class="hidden"><nav id="nav"><button data-view="dashboard" class="active">Dashboard</button><button data-view="tasks">Tasks</button><button data-view="calendar">Calendar</button><button data-view="gantt">Gantt</button><button data-view="members">Members</button><button data-view="admin">Admin</button></nav><p id="notice" class="muted"></p>
-<section id="dashboard"><h2>ภาพรวมงาน</h2><div class="grid" id="metrics"></div><h2 style="margin-top:20px">งานใกล้กำหนด</h2><div class="scroll" id="upcoming"></div></section>
+<section id="dashboard"><h2>ภาพรวมงาน</h2><div class="grid" id="metrics"></div><div class="dashboard-charts"><div class="chart-card"><h3>งานแยกตามสถานะ</h3><div id="statusChart" aria-label="กราฟจำนวนงานตามสถานะ"></div></div><div class="chart-card"><h3>สัดส่วนประเภทงาน</h3><div id="categoryChart" aria-label="กราฟสัดส่วนประเภทงาน"></div></div></div><h2 style="margin-top:20px">งานใกล้กำหนด</h2><div class="scroll" id="upcoming"></div></section>
 <section id="tasks" class="hidden"><div class="row" style="justify-content:space-between"><h2>รายการงาน</h2><div class="row"><button id="newTask">+ เพิ่มงาน</button><button id="export" class="secondary">Export CSV (Excel)</button></div></div><div class="row"><div class="field"><input id="search" placeholder="ค้นหางาน"></div><div class="field"><select id="filter"><option value="">ทุกสถานะ</option><option>Pending</option><option>In Progress</option><option>On Hold</option><option>Completed</option></select></div><div class="field"><select id="ownerFilter" aria-label="กรองตามผู้รับผิดชอบ"><option value="">ผู้รับผิดชอบทุกคน</option><option value="__unassigned__">ยังไม่มอบหมาย</option></select></div></div><div class="scroll" id="taskTable"></div></section>
 <section id="calendar" class="hidden"><div class="row"><button class="secondary" id="prevMonth">◀</button><h2 id="monthTitle"></h2><button class="secondary" id="nextMonth">▶</button></div><div class="calendar-layout"><div class="calendar" id="calendarGrid"></div><aside id="remainingTasks" class="remaining-panel" aria-label="จำนวนงานคงเหลือ"></aside></div></section>
 <section id="gantt" class="hidden"><h2>Gantt – 14 วันนับจากวันนี้</h2><div class="scroll" id="ganttGrid"></div></section>
