@@ -1,8 +1,8 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],commentTask=null,historyTask=null,month=new Date(),channel=null;
+const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],commentTask=null,historyTask=null,month=new Date(),calendarMode="month",ganttStart="",ganttDays=14,detailTask=null,attachmentTask=null,channel=null;
 const dateOnly=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`};
-const today=()=>dateOnly(new Date());const show=(id,yes)=>$(id).classList.toggle('hidden',!yes);
+const today=()=>dateOnly(new Date());ganttStart=today();const show=(id,yes)=>$(id).classList.toggle('hidden',!yes);
 const msg=(s,bad=false)=>{$('notice').textContent=s;$('notice').className=bad?'error':'muted'};
 function view(name){for(const id of ['dashboard','tasks','calendar','gantt','members','admin'])show(id,id===name);document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));render();}
 function memberColor(id){const m=members.find(x=>x.id===id);return m&&/^#[0-9a-f]{6}$/i.test(m.user_color||'')?m.user_color:'#8291a5'}
@@ -10,7 +10,7 @@ function colorDot(id){return `<span class="user-dot" style="background:${memberC
 function taskSchedule(t){return [t.start_date||'—',t.start_time?String(t.start_time).slice(0,5):'', '→',t.due_date||'—',t.end_time?String(t.end_time).slice(0,5):''].filter(Boolean).join(' ')}
 function taskOwnerLabel(t){return t.assigned_to ? memberName(t.assigned_to) : 'ยังไม่ระบุผู้รับผิดชอบ'}
 function memberName(id){const m=members.find(x=>x.id===id);return m?m.display_name||m.id.slice(0,8):'—'}
-function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> <span class="task-owner-inline">(${esc(taskOwnerLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button>${profile?.role==='admin'?` <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
+function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> <span class="task-owner-inline">(${esc(taskOwnerLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button> <button class="secondary" data-attachment-task="${t.id}">แนบไฟล์</button>${profile?.role==='admin'?` <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
 function render(){const total=tasks.length,done=tasks.filter(t=>t.status==='Completed').length,late=tasks.filter(t=>t.due_date&&t.due_date<today()&&t.status!=='Completed').length,doing=tasks.filter(t=>t.status==='In Progress').length;
 $('metrics').innerHTML=[['Total Tasks',total],['In Progress',doing],['Completed',done],['Overdue',late]].map(([k,v])=>`<div class="metric"><small>${k}</small><strong>${v}</strong></div>`).join('');
  renderDashboardCharts();
@@ -46,6 +46,7 @@ function renderDashboardCharts(){
 }
 
 function renderCalendar(){
+ if(calendarMode!=="month"){renderCalendarAgenda();return;}
  const y=month.getFullYear(),m=month.getMonth();
  $('monthTitle').textContent=month.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
  const first=new Date(y,m,1),offset=first.getDay(),last=new Date(y,m+1,0);
@@ -80,7 +81,7 @@ const overlaps = tasks.filter(t => {
    const dayDiff=(x,z)=>(Date.parse(x+'T00:00:00Z')-Date.parse(z+'T00:00:00Z'))/86400000;
    const left=Math.max(0,dayDiff(a,startKey)),right=Math.min(6,dayDiff(b,startKey));
    const color=memberColor(t.assigned_to);
-   bars+=`<div class="cal-span" style="grid-column:${left+1}/${right+2};grid-row:${slot+1};background:${color}" title="${esc(t.title)} | ผู้รับผิดชอบ: ${esc(taskOwnerLabel(t))} | ${esc(taskSchedule(t))} | ${esc(t.status)}">${a<startKey?'↤ ':''}${esc(t.title)} (${esc(taskOwnerLabel(t))})${b>endKey?' ↦':''}</div>`;
+   bars+=`<div class="cal-span" data-task-detail="${esc(t.id)}" tabindex="0" role="button" style="grid-column:${left+1}/${right+2};grid-row:${slot+1};background:${color}" title="${esc(t.title)} | ผู้รับผิดชอบ: ${esc(taskOwnerLabel(t))} | ${esc(taskSchedule(t))} | ${esc(t.status)}">${a<startKey?'↤ ':''}${esc(t.title)} (${esc(taskOwnerLabel(t))})${b>endKey?' ↦':''}</div>`;
   }
   const lanes=Math.max(1,occupied.length);
   html+=`<div class="cal-week" style="--lanes:${lanes}">`;
@@ -90,7 +91,7 @@ const overlaps = tasks.filter(t => {
   }
   html+=`<div class="cal-events" style="--lanes:${lanes}">${bars}</div></div>`;
  }
- $('calendarGrid').innerHTML=html;
+ $('calendarGrid').classList.add('calendar');$('calendarGrid').innerHTML=html;
 }
 function renderRemainingTasks(){
  const counts=new Map();let unassigned=0;
@@ -111,7 +112,60 @@ async function openHistory(id){
  if(!data?.length){$('historyList').innerHTML='<p class="muted">ยังไม่มีประวัติการแก้ไขหลังติดตั้ง V3.5</p>';return;}
  $('historyList').innerHTML=data.map(h=>{const entries=Object.entries(h.changes||{}).filter(([key])=>Object.hasOwn(historyFields,key));return `<article class="history-entry"><div><strong>${esc(h.changed_by?memberName(h.changed_by):'ระบบ / ไม่ระบุผู้แก้ไข')}</strong> <span class="muted">${esc(new Date(h.changed_at).toLocaleString('th-TH'))}</span></div><table class="history-table"><thead><tr><th>รายการ</th><th>ก่อนแก้ไข</th><th>หลังแก้ไข</th></tr></thead><tbody>${entries.map(([key,v])=>`<tr><td>${esc(historyFields[key])}</td><td>${esc(historyValue(key,v.old))}</td><td>${esc(historyValue(key,v.new))}</td></tr>`).join('')}</tbody></table></article>`;}).join('');
 }
-function renderGantt(){const days=Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()+i);return dateOnly(d)});let h=`<div>Task</div>${days.map(d=>`<div>${d.slice(5)}</div>`).join('')}`;for(const t of tasks.filter(x=>x.start_date&&x.due_date)){const color=memberColor(t.assigned_to);h+=`<div title="${esc(t.title)} | ${esc(taskOwnerLabel(t))} | ${esc(taskSchedule(t))}">${colorDot(t.assigned_to)} ${esc(t.title)} <span class="task-owner-inline">(${esc(taskOwnerLabel(t))})</span></div>`+days.map(d=>`<div class="${d>=t.start_date&&d<=t.due_date?'filled':''}" style="${d>=t.start_date&&d<=t.due_date?'background:'+color:''}">${d===t.start_date?'●':''}</div>`).join('')}$('ganttGrid').innerHTML=`<div class="gantt">${h}</div>`;}
+function renderGantt(){
+ const base=new Date(ganttStart+'T12:00:00');
+ const days=Array.from({length:ganttDays},(_,i)=>{const d=new Date(base);d.setDate(base.getDate()+i);return dateOnly(d)});
+ let h=`<div class="gantt-heading">Task</div>${days.map(d=>`<div class="gantt-heading">${d.slice(5)}</div>`).join('')}`;
+ for(const t of tasks.filter(x=>x.start_date&&x.due_date)){
+  const color=memberColor(t.assigned_to);
+  h+=`<div class="gantt-task" data-task-detail="${esc(t.id)}" tabindex="0" role="button" title="ดูรายละเอียด ${esc(t.title)}">${colorDot(t.assigned_to)} ${esc(t.title)} <span class="task-owner-inline">(${esc(taskOwnerLabel(t))})</span></div>`;
+  h+=days.map(d=>`<div class="${d>=t.start_date&&d<=t.due_date?'filled gantt-clickable':''}" ${d>=t.start_date&&d<=t.due_date?`data-task-detail="${esc(t.id)}" tabindex="0" role="button"`:''} style="${d>=t.start_date&&d<=t.due_date?'background:'+color:''}">${d===t.start_date?'●':''}</div>`).join('');
+ }
+ $('ganttGrid').innerHTML=`<div class="gantt" style="grid-template-columns:240px repeat(${ganttDays},minmax(34px,1fr))">${h}</div>`;
+}
+function renderCalendarAgenda(){
+ const selected=new Date(month.getFullYear(),month.getMonth(),month.getDate());
+ const begin=new Date(selected);
+ if(calendarMode==='week')begin.setDate(begin.getDate()-begin.getDay());
+ const count=calendarMode==='week'?7:1;
+ const days=Array.from({length:count},(_,i)=>{const d=new Date(begin);d.setDate(begin.getDate()+i);return dateOnly(d)});
+ $('monthTitle').textContent=calendarMode==='week'?`${days[0]} — ${days[days.length-1]}`:selected.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
+ $('calendarGrid').classList.remove('calendar');$('calendarGrid').innerHTML=`<div class="agenda-grid">${days.map(d=>`<div class="agenda-day"><strong>${new Date(d+'T12:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}</strong>${tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed'&&(t.start_date||t.due_date)<=d&&(t.due_date||t.start_date)>=d).map(t=>`<button type="button" class="agenda-task" data-task-detail="${esc(t.id)}" style="background:${memberColor(t.assigned_to)}">${esc(t.title)} (${esc(taskOwnerLabel(t))})</button>`).join('')||'<p class="muted">ไม่มีงาน</p>'}</div>`).join('')}</div>`;
+}
+function openTaskDetail(id){
+ const t=tasks.find(x=>x.id===id);if(!t)return;
+ detailTask=id;
+ $('detailTitle').textContent=t.title;
+ $('detailContent').innerHTML=`<dl class="detail-grid"><dt>ประเภท</dt><dd>${esc(t.category)}</dd><dt>สถานะ</dt><dd>${esc(t.status)}</dd><dt>Progress</dt><dd>${esc(t.progress)}%</dd><dt>ผู้รับผิดชอบ</dt><dd>${esc(taskOwnerLabel(t))}</dd><dt>ช่วงเวลา</dt><dd>${esc(taskSchedule(t))}</dd><dt>รายละเอียด</dt><dd>${esc(t.description||'—')}</dd></dl>`;
+ $('taskDetailDialog').showModal();
+ void loadDetailAttachments(id);
+}
+async function loadDetailAttachments(id){
+ const el=$('detailAttachments');el.textContent='กำลังโหลดไฟล์แนบ...';
+ const {data,error}=await db.from('task_attachments').select('id,file_name,storage_path,file_size').eq('task_id',id).order('created_at',{ascending:false});
+ if(detailTask!==id)return;
+ if(error){el.textContent='ไม่สามารถโหลดไฟล์แนบ: '+error.message;return;}
+ el.innerHTML=(data||[]).map(a=>`<div class="attachment-row"><span>${esc(a.file_name)} (${Math.ceil(a.file_size/1024)} KB)</span><button class="secondary" type="button" data-attachment-open="${esc(a.id)}">เปิดไฟล์</button></div>`).join('')||'<p class="muted">ยังไม่มีไฟล์แนบ</p>';
+}
+async function openAttachment(id){
+ const {data:a,error}=await db.from('task_attachments').select('storage_path').eq('id',id).single();
+ if(error||!a)throw Error(error?.message||'ไม่พบไฟล์');
+ const {data,error:signError}=await db.storage.from('task-files').createSignedUrl(a.storage_path,60);
+ if(signError||!data?.signedUrl)throw Error(signError?.message||'ไม่สามารถเปิดไฟล์');
+ window.open(data.signedUrl,'_blank','noopener,noreferrer');
+}
+async function openAttachmentDialog(id){
+ const t=tasks.find(x=>x.id===id);if(!t)return;
+ attachmentTask=id;$('attachmentTaskTitle').textContent=t.title;
+ $('attachmentFile').value='';$('attachmentMsg').textContent='';$('attachmentDialog').showModal();
+ await loadAttachmentList(id);
+}
+async function loadAttachmentList(id){
+ const el=$('attachmentList');el.textContent='กำลังโหลด...';
+ const {data,error}=await db.from('task_attachments').select('id,file_name,file_size').eq('task_id',id).order('created_at',{ascending:false});
+ if(attachmentTask!==id)return;
+ el.innerHTML=error?`<p class="error">${esc(error.message)}</p>`:(data||[]).map(a=>`<div class="attachment-row"><span>${esc(a.file_name)} (${Math.ceil(a.file_size/1024)} KB)</span><button type="button" class="secondary" data-attachment-open="${esc(a.id)}">เปิดไฟล์</button></div>`).join('')||'<p class="muted">ยังไม่มีไฟล์แนบ</p>';
+}
 async function refresh(){if(!user)return;const [tr,mr,pr]=await Promise.all([db.from('tasks').select('*').is('deleted_at',null).order('created_at',{ascending:false}),db.from('profiles').select('id,display_name,role,user_color'),db.from('profiles').select('id,role,display_name,must_change_password').eq('id',user.id).single()]);if(tr.error||mr.error||pr.error){msg('โหลดข้อมูลไม่สำเร็จ: '+[tr.error,mr.error,pr.error].filter(Boolean).map(e=>e.message).join(' / '),true);return}tasks=tr.data||[];members=mr.data||[];profile=pr.data;$('identity').textContent=`${profile.display_name||user.email} (${profile.role})`;render();}
 async function signedIn(u){user=u;show('auth',!u);show('app',!!u);show('logout',!!u);show('selfPassword',!!u);show('setup',false);if(channel){await db.removeChannel(channel);channel=null}if(u){await refresh();if(profile?.must_change_password)openSelfPassword(true);channel=db.channel('mt56251-updates').on('postgres_changes',{event:'*',schema:'public',table:'tasks'},()=>refresh()).on('postgres_changes',{event:'*',schema:'public',table:'profiles'},()=>refresh()).on('postgres_changes',{event:'*',schema:'public',table:'comments'},()=>{if(commentTask)loadComments()}).subscribe();}}
 function openTask(id){const t=tasks.find(x=>x.id===id);$('taskForm').reset();$('taskId').value=t?.id||'';$('dialogTitle').textContent=t?'แก้ไขงาน':'เพิ่มงาน';for(const k of ['title','description','category','status','progress','start_date','due_date','start_time','end_time'])if(t&&t[k]!=null)$(k).value=t[k];$('assigned_to').innerHTML='<option value="">ไม่ระบุ</option>'+members.map(m=>`<option value="${m.id}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');$('assigned_to').value=t?.assigned_to||'';$('taskMsg').textContent='';$('taskDialog').showModal();}
@@ -127,7 +181,30 @@ $('nameForm').onsubmit=async e=>{e.preventDefault();const name=$('newDisplayName
 $('logout').onclick=()=>db.auth.signOut();document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{view(b.dataset.view);if(b.dataset.view==='admin')void loadAdminUsers();});$('newTask').onclick=()=>openTask(null);$('cancelTask').onclick=()=>$('taskDialog').close();$('search').oninput=render;$('filter').onchange=render;$('ownerFilter').onchange=render;
 $('taskForm').onsubmit=async e=>{e.preventDefault();const id=$('taskId').value;const data={title:$('title').value.trim(),description:$('description').value,category:$('category').value,status:$('status').value,progress:Number($('progress').value),start_date:$('start_date').value||null,due_date:$('due_date').value||null,start_time:$('start_time').value||null,end_time:$('end_time').value||null,assigned_to:$('assigned_to').value||null};if(data.start_date&&data.due_date&&data.start_date>data.due_date){$('taskMsg').textContent='Due Date ต้องไม่ก่อน Start Date';return}if(data.start_date&&data.due_date&&data.start_date===data.due_date&&data.start_time&&data.end_time&&data.end_time<data.start_time){$('taskMsg').textContent='End Time ต้องไม่ก่อน Start Time ในวันเดียวกัน';return;}const result=id?await db.from('tasks').update(data).eq('id',id):await db.from('tasks').insert({...data,created_by:user.id});if(result.error){$('taskMsg').textContent=result.error.message;return}$('taskDialog').close();await refresh();};
 document.addEventListener('click',e=>{const del=e.target.closest('[data-delete-task]');if(del){void openDeleteTask(del.dataset.deleteTask);return;}const a=e.target.closest('[data-edit]'),b=e.target.closest('[data-comment]'),h=e.target.closest('[data-history]');if(a)openTask(a.dataset.edit);if(b)openComments(b.dataset.comment);if(h)void openHistory(h.dataset.history);if(e.target.closest('[data-edit-name]')){$('newDisplayName').value=profile?.display_name||'';$('nameMsg').textContent='';$('nameDialog').showModal()}if(e.target.closest('[data-edit-color]')){$('newUserColor').value=memberColor(user.id)==='#8291a5'?'#2563eb':memberColor(user.id);$('colorMsg').textContent='';$('colorDialog').showModal()}});$('closeHistory').onclick=()=>{historyTask=null;$('historyDialog').close()};$('closeComments').onclick=()=>{$('commentsDialog').close();commentTask=null};$('commentForm').onsubmit=async e=>{e.preventDefault();const message=$('commentText').value.trim();if(!message)return;const {error}=await db.from('comments').insert({task_id:commentTask,author_id:user.id,message});if(error){$('commentMsg').textContent=error.message;return}$('commentText').value='';await loadComments();};
-$('prevMonth').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()-1,1);renderCalendar()};$('nextMonth').onclick=()=>{month=new Date(month.getFullYear(),month.getMonth()+1,1);renderCalendar()};
+$('prevMonth').onclick=()=>{const d=new Date(month);if(calendarMode==='month')d.setMonth(d.getMonth()-1);else d.setDate(d.getDate()-(calendarMode==='week'?7:1));month=d;renderCalendar()};
+$('nextMonth').onclick=()=>{const d=new Date(month);if(calendarMode==='month')d.setMonth(d.getMonth()+1);else d.setDate(d.getDate()+(calendarMode==='week'?7:1));month=d;renderCalendar()};
+$('calendarMode').onchange=e=>{calendarMode=e.target.value;renderCalendar()};
+$('ganttStart').value=ganttStart;
+$('ganttStart').onchange=e=>{ganttStart=e.target.value||today();renderGantt()};
+$('ganttDays').onchange=e=>{ganttDays=Number(e.target.value);renderGantt()};
+$('closeTaskDetail').onclick=()=>{$('taskDetailDialog').close();detailTask=null};
+$('detailEdit').onclick=()=>{const id=detailTask;$('taskDetailDialog').close();detailTask=null;openTask(id)};
+$('detailAttach').onclick=()=>{const id=detailTask;$('taskDetailDialog').close();detailTask=null;void openAttachmentDialog(id)};
+$('attachmentCancel').onclick=()=>{$('attachmentDialog').close();attachmentTask=null};
+$('attachmentForm').onsubmit=async e=>{e.preventDefault();const file=$('attachmentFile').files[0];if(!file||!attachmentTask)return;
+ if(file.size>10*1024*1024){$('attachmentMsg').textContent='ไฟล์ต้องไม่เกิน 10 MB';return;}
+ const allowed=['application/pdf','image/png','image/jpeg','text/plain','text/csv','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+ if(!allowed.includes(file.type)){$('attachmentMsg').textContent='รองรับ PDF, PNG, JPG, TXT, CSV, XLS, XLSX, DOCX';return;}
+ $('attachmentMsg').textContent='กำลังอัปโหลด...';const taskId=attachmentTask;
+ const path=taskId+'/'+crypto.randomUUID()+'/'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+ const {error:upErr}=await db.storage.from('task-files').upload(path,file,{upsert:false,contentType:file.type});
+ if(upErr){$('attachmentMsg').textContent=upErr.message;return;}
+ const {error:dbErr}=await db.from('task_attachments').insert({task_id:taskId,uploaded_by:user.id,file_name:file.name,file_size:file.size,storage_path:path});
+ if(dbErr){await db.storage.from('task-files').remove([path]);$('attachmentMsg').textContent=dbErr.message;return;}
+ $('attachmentFile').value='';$('attachmentMsg').textContent='อัปโหลดสำเร็จ';await loadAttachmentList(taskId);
+};
+document.addEventListener('click',e=>{const d=e.target.closest('[data-task-detail]');if(d)openTaskDetail(d.dataset.taskDetail);const a=e.target.closest('[data-attachment-task]');if(a)void openAttachmentDialog(a.dataset.attachmentTask);const f=e.target.closest('[data-attachment-open]');if(f)void openAttachment(f.dataset.attachmentOpen).catch(err=>alert(err.message));});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const d=e.target.closest('[data-task-detail]');if(d){e.preventDefault();openTaskDetail(d.dataset.taskDetail)}}});
 $('export').onclick=()=>{const cols=['title','description','category','status','progress','start_date','start_time','due_date','end_time','assigned_to','created_at'];const csv='\ufeff'+[cols.join(','),...tasks.map(t=>cols.map(k=>'"'+String(t[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='MT56251_Tasks_'+today()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 
 // Delete requires a fresh admin password verification on the server, never a publishable key.
