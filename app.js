@@ -308,5 +308,47 @@ $('changePasswordForm').onsubmit=async e=>{
  forcePassword=false;$('changePasswordDialog').close();$('selfNewPassword').value='';await refresh();
 };
 
+
+// V3.7 Notification Center: server-side event triggers + reminders on app refresh.
+let teamNotifications=[],notifChannel=null,notifBusy=false;
+const notifKinds={due_soon:'📅',overdue:'⚠️',assigned:'👤',comment:'💬',completed:'✅'};
+function renderNotifications(){
+ const unread=teamNotifications.filter(n=>!n.is_read).length;
+ $('notifCount').textContent=unread>99?'99+':String(unread);
+ show('notifCount',unread>0);
+ $('notifList').innerHTML=teamNotifications.length?teamNotifications.map(n=>`<button type="button" class="notif-item ${n.is_read?'':'unread'}" data-notif-id="${esc(n.id)}"><b>${notifKinds[n.kind]||'🔔'} ${esc(n.title)}</b><small>${esc(n.message)}</small><small>${esc(new Date(n.created_at).toLocaleString('th-TH'))}</small></button>`).join(''):'<p class="notif-empty">ยังไม่มีการแจ้งเตือน</p>';
+}
+async function loadNotifications(withReminders=false){
+ if(!db||!user||notifBusy)return;
+ notifBusy=true;
+ try{
+  if(withReminders){const {error:reminderError}=await db.rpc('team37_refresh_reminders');if(reminderError)throw reminderError;}
+  const {data,error}=await db.from('team_notifications').select('id,task_id,kind,title,message,is_read,created_at').order('created_at',{ascending:false}).limit(100);
+  if(error)throw error;
+  teamNotifications=data||[];renderNotifications();$('notifInfo').textContent='';
+ }catch(e){$('notifInfo').textContent='แจ้งเตือนยังไม่พร้อม: '+e.message;}
+ finally{notifBusy=false;}
+}
+async function markNotification(id){
+ const n=teamNotifications.find(x=>x.id===id);if(!n)return;
+ if(!n.is_read){const {error}=await db.from('team_notifications').update({is_read:true}).eq('id',id);if(error){$('notifInfo').textContent=error.message;return;}n.is_read=true;renderNotifications();}
+ $('notifPanel').classList.add('hidden');$('notifBell').setAttribute('aria-expanded','false');
+ if(n.task_id){const task=tasks.find(t=>t.id===n.task_id);if(task){view('tasks');openTaskDetail(n.task_id);}else msg('งานที่เกี่ยวข้องอาจถูกลบหรือไม่อยู่ในรายการปัจจุบัน',true);}
+}
+$('notifBell').onclick=()=>{const panel=$('notifPanel');const opening=panel.classList.contains('hidden');panel.classList.toggle('hidden',!opening);$('notifBell').setAttribute('aria-expanded',String(opening));if(opening)void loadNotifications(true);};
+$('notifRefresh').onclick=()=>loadNotifications(true);
+$('notifReadAll').onclick=async()=>{const {error}=await db.from('team_notifications').update({is_read:true}).eq('is_read',false);if(error){$('notifInfo').textContent=error.message;return;}teamNotifications.forEach(n=>n.is_read=true);renderNotifications();};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-notif-id]');if(b)void markNotification(b.dataset.notifId);});
+async function setupNotifications(){
+ if(notifChannel){await db.removeChannel(notifChannel);notifChannel=null;}
+ teamNotifications=[];renderNotifications();
+ if(!user)return;
+ await loadNotifications(true);
+ notifChannel=db.channel('mt37-notifications-'+user.id).on('postgres_changes',{event:'*',schema:'public',table:'team_notifications',filter:'recipient_id=eq.'+user.id},()=>{void loadNotifications(false);}).subscribe();
+}
+// Refresh notification state on login/logout without changing the existing auth flow.
+const originalSignedIn=signedIn;
+signedIn=async function(u){await originalSignedIn(u);await setupNotifications();};
+
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
