@@ -3,22 +3,35 @@
 .user-dot{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;flex:none;margin-right:4px;border:1px solid #0001}.gantt .filled{color:white}.color-help{font-size:12px;color:#64758a}
 .calendar-layout{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:16px;align-items:start}.calendar-layout>.calendar{min-width:0}.remaining-panel{border:1px solid #d8e3ed;border-radius:10px;padding:15px;background:#f8fbff;position:sticky;top:12px}.remaining-panel h3{margin:0 0 8px;font-size:16px}.remaining-row{display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid #e0e8f2;padding:9px 0;font-size:13px}.remaining-name{display:flex;align-items:center;gap:7px;min-width:0;overflow-wrap:anywhere}.remaining-row strong{font-variant-numeric:tabular-nums}.remaining-total{display:flex;justify-content:space-between;margin-top:12px;font-size:14px;font-weight:700}.history-scroll{max-height:60vh;overflow:auto}.history-entry{border:1px solid #d8e3ed;border-radius:8px;padding:12px;margin:10px 0}.history-table{min-width:0;margin-top:8px;table-layout:fixed}.history-table th,.history-table td{overflow-wrap:anywhere}.history-table th:first-child{width:24%}.history-table th:nth-child(2),.history-table th:nth-child(3){width:38%}#historyDialog{max-width:850px}@media(max-width:900px){.calendar-layout{grid-template-columns:minmax(0,1fr)}.remaining-panel{position:static}}@media(max-width:650px){.calendar-layout>.calendar{overflow-x:auto}.history-table{min-width:0}}
 
+/* V3.5.1: Align Remaining Tasks with the calendar month controls. */
+#calendar:not(.hidden){display:grid;grid-template-columns:minmax(0,1fr) 245px;column-gap:16px;align-items:start}
+#calendar > .row{grid-column:1;grid-row:1;min-width:0;margin-bottom:12px}
+#calendar > .calendar-layout{display:contents}
+#calendarGrid{grid-column:1;grid-row:2;min-width:0}
+#remainingTasks{grid-column:2;grid-row:1 / span 2;align-self:start;position:static}
+@media(max-width:900px){
+ #calendar:not(.hidden){grid-template-columns:minmax(0,1fr)}
+ #calendar > .row{grid-column:1;grid-row:1}
+ #calendarGrid{grid-column:1;grid-row:2}
+ #remainingTasks{grid-column:1;grid-row:3;margin-top:14px}
+}
 
-/* V3.5.2: structural two-column calendar layout */
-#calendar .calendar-layout{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:16px;align-items:start}
-#calendar .calendar-main{min-width:0}
-#calendar .calendar-month-controls{min-height:43px;margin-bottom:12px}
-#calendar .calendar-month-controls h2{margin:0}
-#calendar #calendarGrid{width:100%;min-width:0}
-#calendar #remainingTasks{position:static;align-self:start;margin:0;min-width:0}
-@media(max-width:900px){#calendar .calendar-layout{grid-template-columns:minmax(0,1fr)}#calendar #remainingTasks{margin-top:4px}}
+/* V3.5.3: independent Calendar card and Remaining Tasks outside the white card. */
+#calendar:not(.hidden){display:block;position:relative;overflow:visible}
+#calendar > .row{display:flex;margin-bottom:12px}
+#calendar > .calendar-layout{display:block}
+#calendarGrid{display:grid;width:100%;min-width:0}
+#remainingTasks{position:absolute;left:calc(100% + 16px);top:0;width:245px;margin:0;z-index:1}
+/* Reserve space in the page, not inside the calendar card. */
+@media(min-width:1650px){main:has(#calendar:not(.hidden)){max-width:1561px;padding-right:261px}}
+@media(max-width:1649px){#remainingTasks{position:static;width:100%;margin-top:16px}}
 </style></head><body><header><h1>MT56251 | Team Work Management</h1><div class="row"><span id="identity"></span><button id="selfPassword" class="secondary hidden">เปลี่ยนรหัสผ่าน</button><button id="logout" class="secondary hidden">ออกจากระบบ</button></div></header><main>
 <section id="setup"><h2>เชื่อมต่อ Supabase</h2><p>กรอก Publishable Key ในไฟล์ <code>config.js</code> ก่อนเปิดใช้งาน ห้ามใช้ Secret Key หรือ Database Password</p><p id="setupMsg" class="error"></p></section>
 <section id="auth" class="login hidden"><h2>เข้าสู่ระบบ MT56251</h2><form id="loginForm"><label>Email</label><input id="email" type="email" required autocomplete="username"><label>Password</label><input id="password" type="password" required autocomplete="current-password"><p><button type="submit">เข้าสู่ระบบ</button> <button type="button" class="secondary" id="forgot">ส่งอีเมลรีเซ็ตรหัสผ่าน</button></p></form><p id="loginMsg" class="error"></p><p class="muted">ผู้ดูแลสร้างบัญชีสมาชิกผ่าน Supabase Authentication ก่อน ระบบนี้ไม่มีการเปิดสมัครบัญชีสาธารณะ</p></section>
 <div id="app" class="hidden"><nav id="nav"><button data-view="dashboard" class="active">Dashboard</button><button data-view="tasks">Tasks</button><button data-view="calendar">Calendar</button><button data-view="gantt">Gantt</button><button data-view="members">Members</button><button data-view="admin">Admin</button></nav><p id="notice" class="muted"></p>
 <section id="dashboard"><h2>ภาพรวมงาน</h2><div class="grid" id="metrics"></div><h2 style="margin-top:20px">งานใกล้กำหนด</h2><div class="scroll" id="upcoming"></div></section>
 <section id="tasks" class="hidden"><div class="row" style="justify-content:space-between"><h2>รายการงาน</h2><div class="row"><button id="newTask">+ เพิ่มงาน</button><button id="export" class="secondary">Export CSV (Excel)</button></div></div><div class="row"><div class="field"><input id="search" placeholder="ค้นหางาน"></div><div class="field"><select id="filter"><option value="">ทุกสถานะ</option><option>Pending</option><option>In Progress</option><option>On Hold</option><option>Completed</option></select></div></div><div class="scroll" id="taskTable"></div></section>
-<section id="calendar" class="hidden"><div class="calendar-layout"><div class="calendar-main"><div class="row calendar-month-controls"><button class="secondary" id="prevMonth">◀</button><h2 id="monthTitle"></h2><button class="secondary" id="nextMonth">▶</button></div><div class="calendar" id="calendarGrid"></div></div><aside id="remainingTasks" class="remaining-panel" aria-label="จำนวนงานคงเหลือ"></aside></div></section>
+<section id="calendar" class="hidden"><div class="row"><button class="secondary" id="prevMonth">◀</button><h2 id="monthTitle"></h2><button class="secondary" id="nextMonth">▶</button></div><div class="calendar-layout"><div class="calendar" id="calendarGrid"></div><aside id="remainingTasks" class="remaining-panel" aria-label="จำนวนงานคงเหลือ"></aside></div></section>
 <section id="gantt" class="hidden"><h2>Gantt – 14 วันนับจากวันนี้</h2><div class="scroll" id="ganttGrid"></div></section>
 <section id="members" class="hidden"><h2>สมาชิกทีม</h2><p class="muted">แก้ไขชื่อและสีประจำตัวของตนเองได้ สีงานใน Tasks, Calendar และ Gantt จะอิงผู้รับผิดชอบ</p><div class="scroll" id="memberTable"></div></section>
 <section id="admin" class="hidden"><h2>Admin Management</h2><p class="muted">เพิ่มสมาชิก / Admin ร่วม / เปลี่ยนรหัสผ่าน / ระงับบัญชี โดยตรวจสิทธิ์ผ่าน Edge Function</p><div class="row"><button id="adminReload" class="secondary">โหลดบัญชี</button><button id="adminAdd">+ เพิ่มสมาชิก</button></div><p id="adminMsg" class="muted"></p><div id="adminUsers" class="scroll"></div></section></div></main>
