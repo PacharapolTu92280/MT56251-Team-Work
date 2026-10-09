@@ -56,7 +56,19 @@ function renderCalendar(){
   const start=new Date(base);start.setDate(base.getDate()+w*7);
   const end=new Date(start);end.setDate(start.getDate()+6);
   const startKey=dateOnly(start),endKey=dateOnly(end);
-  const overlaps=tasks.filter(t=>{const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return a&&b&&a<=endKey&&b>=startKey;})
+  
+const overlaps = tasks.filter(t => {
+  // ไม่แสดงงานที่ Completed ใน Calendar
+  if (String(t.status || '').trim().toLowerCase() === 'completed') {
+    return false;
+  }
+
+  const a = t.start_date || t.due_date;
+  const b = t.due_date || t.start_date;
+
+  return a && b && a <= endKey && b >= startKey;
+});
+
     .sort((a,b)=>(a.start_date||a.due_date).localeCompare(b.start_date||b.due_date)||String(a.title).localeCompare(String(b.title)));
   const occupied=[];let bars='';
   for(const t of overlaps){
