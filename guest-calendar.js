@@ -3,6 +3,7 @@
   const $ = id => document.getElementById(id);
   const cfg = window.MT_CONFIG || {};
   const safe = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const todayKey = () => key(new Date());
   const key = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   let current = new Date(), mode = 'month', tasks = [], loaded = false;
   function switchTab(calendar) {
@@ -45,7 +46,7 @@
       let html=['อา','จ','อ','พ','พฤ','ศ','ส'].map(x=>`<div class="guest-cal-head">${x}</div>`).join('');
       for(let i=0;i<n;i++){
         const d=new Date(base);d.setDate(base.getDate()+i);
-        html+=`<div class="guest-cal-day ${d.getMonth()!==m?'outside':''}"><b>${d.getDate()}</b>${events(key(d))}</div>`;
+        html+=`<div class="guest-cal-day ${d.getMonth()!==m?'outside':''} ${key(d)===todayKey()?'mt403-guest-today':''}"><div class="mt403-guest-day-head"><b>${d.getDate()}</b>${key(d)===todayKey()?'<span class="mt403-guest-today-label">TODAY</span>':''}</div>${events(key(d))}</div>`;
       }
       grid.innerHTML=html;
     } else {
@@ -53,12 +54,13 @@
       if(mode==='week')start.setDate(start.getDate()-start.getDay());
       const dates=Array.from({length:mode==='week'?7:1},(_,i)=>{const d=new Date(start);d.setDate(start.getDate()+i);return d;});
       $('guestMonthTitle').textContent=mode==='week'?`${key(dates[0])} – ${key(dates[6])}`:current.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
-      grid.innerHTML=dates.map(d=>`<div class="guest-agenda"><div class="guest-agenda-day"><strong>${safe(d.toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'}))}</strong>${events(key(d))||'<p class="hint">ไม่มีงานที่เปิดเผย</p>'}</div></div>`).join('');
+      grid.innerHTML=dates.map(d=>`<div class="guest-agenda"><div class="guest-agenda-day ${key(d)===todayKey()?'mt403-guest-today':''}"><strong>${safe(d.toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long'}))}</strong>${key(d)===todayKey()?'<span class="mt403-guest-today-label">TODAY</span>':''}${events(key(d))||'<p class="hint">ไม่มีงานที่เปิดเผย</p>'}</div></div>`).join('');
     }
   }
   $('showGuestRequest').onclick=()=>switchTab(false);
   $('showGuestCalendar').onclick=()=>switchTab(true);
   $('guestPrev').onclick=()=>{const d=new Date(current);if(mode==='month')d.setMonth(d.getMonth()-1);else d.setDate(d.getDate()-(mode==='week'?7:1));current=d;render();};
   $('guestNext').onclick=()=>{const d=new Date(current);if(mode==='month')d.setMonth(d.getMonth()+1);else d.setDate(d.getDate()+(mode==='week'?7:1));current=d;render();};
+  $('guestToday').onclick=()=>{current=new Date();render();};
   $('guestCalendarMode').onchange=e=>{mode=e.target.value;render();};
 })();

@@ -71,8 +71,8 @@ function renderCalendar(){
  const y=month.getFullYear(),m=month.getMonth();$('monthTitle').textContent=month.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
  const offset=new Date(y,m,1).getDay(),count=Math.ceil((offset+new Date(y,m+1,0).getDate())/7)*7,base=new Date(y,m,1-offset);
  let html=['อา','จ','อ','พ','พฤ','ศ','ส'].map(x=>`<div class="muted cal-head">${x}</div>`).join('');
- for(let i=0;i<count;i++){const d=new Date(base);d.setDate(base.getDate()+i);const key=dateOnly(d),daily=v40DayItems(key),visible=daily.slice(0,3);
- html+=`<div class="day cal-daily-day ${d.getMonth()===m?'':'outside'} ${key===v40SelectedDate?'v40-day-selected':''}"><button class="v40-day-btn" type="button" data-v40-day="${key}">${d.getDate()}</button><div class="cal-daily-list">${visible.map(v40Chip).join('')}${daily.length>3?`<button class="v40-more" type="button" data-v40-day="${key}">+${daily.length-3} More</button>`:''}</div></div>`;
+ for(let i=0;i<count;i++){const d=new Date(base);d.setDate(base.getDate()+i);const key=dateOnly(d),daily=v40DayItems(key),visible=daily.slice(0,3),isToday=key===today();
+ html+=`<div class="day cal-daily-day ${d.getMonth()===m?'':'outside'} ${key===v40SelectedDate?'v40-day-selected':''} ${isToday?'mt403-today':''}"><div class="mt403-day-heading"><button class="v40-day-btn" type="button" data-v40-day="${key}">${d.getDate()}</button>${isToday?'<span class="mt403-today-label">TODAY</span>':''}</div><div class="cal-daily-list">${visible.map(v40Chip).join('')}${daily.length>3?`<button class="v40-more" type="button" data-v40-day="${key}">+${daily.length-3} More</button>`:''}</div></div>`;
  }
  $('calendarGrid').classList.add('calendar');$('calendarGrid').innerHTML=html;v40Panel(v40SelectedDate);
 }
@@ -111,7 +111,7 @@ function renderCalendarAgenda(){
  if(calendarMode==='week')begin.setDate(begin.getDate()-begin.getDay());
  const days=Array.from({length:calendarMode==='week'?7:1},(_,i)=>{const d=new Date(begin);d.setDate(begin.getDate()+i);return dateOnly(d)});
  $('monthTitle').textContent=calendarMode==='week'?`${days[0]} — ${days.at(-1)}`:selected.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
- $('calendarGrid').classList.remove('calendar');$('calendarGrid').innerHTML=`<div class="agenda-grid">${days.map(d=>`<div class="agenda-day"><button type="button" class="v40-day-btn" data-v40-day="${d}">${new Date(d+'T12:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}</button>${v40DayItems(d).slice(0,3).map(v40Chip).join('')}${v40DayItems(d).length>3?`<button type="button" class="v40-more" data-v40-day="${d}">+${v40DayItems(d).length-3} More</button>`:''}</div>`).join('')}</div>`;
+ $('calendarGrid').classList.remove('calendar');$('calendarGrid').innerHTML=`<div class="agenda-grid">${days.map(d=>`<div class="agenda-day ${d===today()?'mt403-today':''}"><button type="button" class="v40-day-btn" data-v40-day="${d}">${new Date(d+'T12:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}</button>${d===today()?'<span class="mt403-today-label">TODAY</span>':''}${v40DayItems(d).slice(0,3).map(v40Chip).join('')}${v40DayItems(d).length>3?`<button type="button" class="v40-more" data-v40-day="${d}">+${v40DayItems(d).length-3} More</button>`:''}</div>`).join('')}</div>`;
 }
 function openTaskDetail(id){
  const t=tasks.find(x=>x.id===id);if(!t)return;
@@ -444,3 +444,5 @@ $('calClear').onclick=()=>{for(const id of ['calOwner','calCategory','calStatus'
 document.addEventListener('click',e=>{const b=e.target.closest('[data-v40-day]');if(!b)return;const day=b.dataset.v40Day;month=new Date(day+'T12:00:00');v40Panel(day);renderCalendar();});
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
+// V4.0.3: Jump to the current local date.
+$('calendarToday').onclick=()=>{month=new Date();v40SelectedDate=today();renderCalendar();};
