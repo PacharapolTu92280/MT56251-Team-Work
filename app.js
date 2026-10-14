@@ -14,7 +14,7 @@ function taskTeamLabel(t){const n=taskCoIds(t).length;return taskOwnerLabel(t)+(
 function taskMemberIds(t){return [...new Set([t.assigned_to,...taskCoIds(t)].filter(Boolean))]}
 function taskOwnerLabel(t){return t.assigned_to ? memberName(t.assigned_to) : 'ยังไม่ระบุผู้รับผิดชอบ'}
 function memberName(id){const m=members.find(x=>x.id===id);return m?m.display_name||m.id.slice(0,8):'—'}
-function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="priority-tag">${esc(t.priority)} #${esc(t.rank_order||'—')}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button> <button class="secondary" data-attachment-task="${t.id}">แนบไฟล์</button>${profile?.role==='admin'?` <button type="button" class="secondary" data-guest-visibility="${t.id}">${t.guest_visible?'Guest: เปิดเผย':'Guest: ซ่อน'}</button> <button class="secondary" data-rank-task="${t.id}">Priority / Rank</button> <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
+function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="priority-tag">${esc(t.priority)} #${esc(t.rank_order||'—')}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button> <button class="secondary" data-attachment-task="${t.id}">แนบไฟล์</button>${profile?.role==='admin'?` <button class="secondary" data-rank-task="${t.id}">Priority / Rank</button> <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
 function render(){const total=tasks.length,done=tasks.filter(t=>t.status==='Completed').length,late=tasks.filter(t=>t.due_date&&t.due_date<today()&&t.status!=='Completed').length,doing=tasks.filter(t=>t.status==='In Progress').length;
 $('metrics').innerHTML=[['Total Tasks',total],['In Progress',doing],['Completed',done],['Overdue',late]].map(([k,v])=>`<div class="metric"><small>${k}</small><strong>${v}</strong></div>`).join('');
  renderDashboardCharts();
@@ -348,17 +348,31 @@ signedIn=async function(u){await originalSignedIn(u);await setupNotifications();
 document.addEventListener('click',e=>{const b=e.target.closest('[data-rank-task]');if(!b||profile?.role!=='admin')return;const t=tasks.find(x=>x.id===b.dataset.rankTask);if(!t)return;$('rankTaskId').value=t.id;$('rankTaskTitle').textContent=t.title;$('rankPriority').value=t.priority||'P3';$('rankNumber').value=t.rank_order||1;$('rankMsg').textContent='';$('rankDialog').showModal();});
 $('rankCancel').onclick=()=>$('rankDialog').close();
 $('rankForm').onsubmit=async e=>{e.preventDefault();const {error}=await db.rpc('team39_set_task_rank',{p_task_id:$('rankTaskId').value,p_priority:$('rankPriority').value,p_rank:Number($('rankNumber').value)});if(error){$('rankMsg').textContent=error.message;return;}$('rankDialog').close();await refresh();};
-// V3.9.2: admin-only public calendar visibility toggle; authorized in PostgreSQL.
-async function setGuestVisibility(id){
+document.querySelector('[data-view="admin"]').addEventListener('click',()=>{void loadGuestCalendarSetting();});
+// V3.9.3: one admin-controlled visibility setting for the entire Guest Calendar.
+async function loadGuestCalendarSetting(){
  if(profile?.role!=='admin')return;
- const task=tasks.find(t=>t.id===id);if(!task)return;
- const next=!task.guest_visible;
- if(!confirm((next?'เปิดเผยชื่อและกำหนดการงานนี้บน Guest Calendar?':'ซ่อนงานนี้จาก Guest Calendar?')+'\n'+task.title))return;
- const {error}=await db.rpc('team392_set_guest_visibility',{p_task_id:id,p_visible:next});
- if(error){msg('เปลี่ยนการแสดง Guest ไม่สำเร็จ: '+error.message,true);return;}
- await refresh();msg(next?'เปิดเผยงานใน Guest Calendar แล้ว':'ซ่อนงานจาก Guest Calendar แล้ว');
+ const label=$('guestCalendarVisibilityStatus');
+ if(!label)return;
+ label.textContent='กำลังโหลด...';
+ const {data,error}=await db.rpc('team393_get_guest_calendar_visibility');
+ if(error){label.textContent='โหลดการตั้งค่าไม่ได้: '+error.message;return;}
+ const visible=data===true;
+ label.textContent=visible?'เปิดเผยงานทั้งหมดที่ยังไม่ Completed':'ซ่อนงานทั้งหมดจาก Guest';
+ $('guestCalendarVisibilityToggle').textContent=visible?'ซ่อน Calendar ทั้งหมด':'เปิดเผย Calendar ทั้งหมด';
+ $('guestCalendarVisibilityToggle').dataset.visible=String(visible);
 }
-document.addEventListener('click',e=>{const b=e.target.closest('[data-guest-visibility]');if(b)void setGuestVisibility(b.dataset.guestVisibility);});
+$('guestCalendarVisibilityToggle').onclick=async()=>{
+ if(profile?.role!=='admin')return;
+ const btn=$('guestCalendarVisibilityToggle');
+ const visible=btn.dataset.visible!=='true';
+ if(!confirm(visible?'ยืนยันเปิดเผยชื่องานและวันที่ของงานที่ยังไม่ Completed ทั้งหมดต่อผู้เข้าชมที่ไม่ Login?':'ยืนยันซ่อนงานทั้งหมดจาก Guest Calendar?'))return;
+ btn.disabled=true;
+ const {error}=await db.rpc('team393_set_guest_calendar_visibility',{p_visible:visible});
+ btn.disabled=false;
+ if(error){$('guestCalendarVisibilityStatus').textContent='บันทึกไม่สำเร็จ: '+error.message;return;}
+ await loadGuestCalendarSetting();
+};
 
 // V3.9: Guest requests, review, priority and rank. All writes use server-checked RPCs.
 const requestStatusLabel={pending:'Pending Approval',approved:'Approved',rejected:'Rejected'};
