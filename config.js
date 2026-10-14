@@ -1,5 +1,5 @@
 window.MT_CONFIG = {
-  supabaseUrl: "SUPABASE_URL_เดิม",
-  publishableKey: "PUBLISHABLE_KEY_เดิม",
-  guestTurnstileSiteKey: "SITE_KEY_จาก_Cloudflare"
+  supabaseUrl: "https://iwngilmutcnpwxfcwini.supabase.co",
+  publishableKey: "sb_publishable_vYio_RsnyYbpb4ev4wjsGQ_y7uCP58i",
+  guestTurnstileSiteKey: "0x4AAAAAAFWJAxm1VfMDy7wm"
 };
