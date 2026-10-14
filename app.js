@@ -14,7 +14,7 @@ function taskTeamLabel(t){const n=taskCoIds(t).length;return taskOwnerLabel(t)+(
 function taskMemberIds(t){return [...new Set([t.assigned_to,...taskCoIds(t)].filter(Boolean))]}
 function taskOwnerLabel(t){return t.assigned_to ? memberName(t.assigned_to) : 'ยังไม่ระบุผู้รับผิดชอบ'}
 function memberName(id){const m=members.find(x=>x.id===id);return m?m.display_name||m.id.slice(0,8):'—'}
-function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="priority-tag">${esc(t.priority)} #${esc(t.rank_order||'—')}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button> <button class="secondary" data-attachment-task="${t.id}">แนบไฟล์</button>${profile?.role==='admin'?` <button class="secondary" data-rank-task="${t.id}">Priority / Rank</button> <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
+function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="v40-priority ${v40PriorityClass(t)}">${esc(t.priority)} #${esc(t.rank_order||'—')}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button> <button class="secondary" data-attachment-task="${t.id}">แนบไฟล์</button>${profile?.role==='admin'?` <button class="secondary" data-rank-task="${t.id}">Priority / Rank</button> <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
 function render(){const total=tasks.length,done=tasks.filter(t=>t.status==='Completed').length,late=tasks.filter(t=>t.due_date&&t.due_date<today()&&t.status!=='Completed').length,doing=tasks.filter(t=>t.status==='In Progress').length;
 $('metrics').innerHTML=[['Total Tasks',total],['In Progress',doing],['Completed',done],['Overdue',late]].map(([k,v])=>`<div class="metric"><small>${k}</small><strong>${v}</strong></div>`).join('');
  renderDashboardCharts();
@@ -24,9 +24,9 @@ const q=$('search').value.trim().toLowerCase(),f=$('filter').value,owner=$('owne
  const previousOwner=ownerSelect.value;
  const ownerOptions='<option value="">ผู้รับผิดชอบทุกคน</option><option value="__unassigned__">ยังไม่มอบหมาย</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${esc(m.id)}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');
  if(ownerSelect.innerHTML!==ownerOptions){ownerSelect.innerHTML=ownerOptions;ownerSelect.value=previousOwner;if(ownerSelect.value!==previousOwner)ownerSelect.value='';}
- $('taskTable').innerHTML=table(tasks.filter(t=>(!f||t.status===f)&&(!owner||(owner==='__unassigned__'?!taskMemberIds(t).length:taskMemberIds(t).includes(owner)))&&(!q||[t.title,t.description,t.category,taskOwnerLabel(t),...taskCoNames(t)].some(x=>String(x||'').toLowerCase().includes(q)))));
+ $('taskTable').innerHTML=table(tasks.filter(t=>(!$('v40MyTasks').checked||taskMemberIds(t).includes(user?.id))&&(!f||t.status===f)&&(!owner||(owner==='__unassigned__'?!taskMemberIds(t).length:taskMemberIds(t).includes(owner)))&&(!q||[t.title,t.description,t.category,taskOwnerLabel(t),...taskCoNames(t)].some(x=>String(x||'').toLowerCase().includes(q)))));
 $('memberTable').innerHTML=`<table><tr><th>ชื่อ</th><th>Role</th><th>สี</th><th>จัดการ</th></tr>${members.map(m=>`<tr><td>${esc(m.display_name||m.id.slice(0,8))}</td><td>${esc(m.role)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${/^#[0-9a-f]{6}$/i.test(m.user_color)?m.user_color:'#2563eb'}"></span></td><td>${m.id===user?.id?'<button class="secondary" data-edit-name="1">✎ แก้ไขชื่อ</button> <button class="secondary" data-edit-color="1">🎨 เปลี่ยนสี</button>':''}</td></tr>`).join('')}</table>`;
-show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');renderCalendar();renderGantt();renderRemainingTasks();if(!$('requests').classList.contains('hidden'))void loadTaskRequests();}
+show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');v40RefreshOwnerOptions();renderCalendar();renderGantt();renderRemainingTasks();v40RenderDashboard();v40WeeklyReport();if(!$('requests').classList.contains('hidden'))void loadTaskRequests();}
 
 // Dashboard charts use live tasks already loaded from Supabase. No external chart dependency.
 function renderDashboardCharts(){
@@ -49,30 +49,32 @@ function renderDashboardCharts(){
  $('categoryChart').innerHTML=`<div class="donut-chart" style="background:${ring}" role="img" aria-label="สัดส่วนประเภทงาน"><div class="donut-hole"><strong>${total}</strong><small>Tasks</small></div></div><div class="category-legend">${legend||'<span class="muted">ยังไม่มีงาน</span>'}</div>`;
 }
 
+// V4.0 Calendar filters and compact per-day items.
+let v40SelectedDate=today();
+function v40PriorityClass(t){return 'v40-'+String(t.priority||'P3').toLowerCase();}
+function v40CalendarTasks(){
+ const owner=$('calOwner').value,category=$('calCategory').value,status=$('calStatus').value,priority=$('calPriority').value,mine=$('calMine').checked;
+ return tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed'&&(!owner||taskMemberIds(t).includes(owner))&&(!category||t.category===category)&&(!status||t.status===status)&&(!priority||(t.priority||'P3')===priority)&&(!mine||taskMemberIds(t).includes(user?.id)));
+}
+function v40InDay(t,key){const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return !!(a&&b&&a<=key&&b>=key);}
+function v40DayItems(key){return v40CalendarTasks().filter(t=>v40InDay(t,key)).sort((a,b)=>Number((a.priority||'P3').slice(1))-Number((b.priority||'P3').slice(1))||(a.start_time||'').localeCompare(b.start_time||'')||(a.rank_order||9999)-(b.rank_order||9999));}
+function v40Chip(t){return `<button type="button" class="v40-event" data-task-detail="${esc(t.id)}" style="background:${memberColor(t.assigned_to)}" title="${esc(t.title)} | ${esc(taskTeamLabel(t))}">${esc(t.priority||'P3')} · ${esc(t.title)}</button>`;}
+function v40Panel(key){v40SelectedDate=key;const items=v40DayItems(key);const heading=new Date(key+'T12:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});$('dailyPanel').querySelector('h3').textContent=heading;
+ if(calendarMode==='day'){
+ const hours=Array.from({length:24},(_,i)=>String(i).padStart(2,'0'));
+ const timed=items.filter(t=>t.start_time),untimed=items.filter(t=>!t.start_time);
+ $('dailyPanelBody').innerHTML=`<p class="muted">Daily Timeline · ${items.length} งาน</p><div class="v40-timeline">${hours.map(hour=>`<div class="v40-hour">${hour}:00</div><div class="v40-hour-events">${timed.filter(t=>String(t.start_time).slice(0,2)===hour).map(t=>v40Chip(t)+`<small>${esc(String(t.start_time).slice(0,5))} – ${esc(t.end_time?String(t.end_time).slice(0,5):'ไม่ระบุ')}</small>`).join('')}</div>`).join('')}</div><div class="v40-timeline-unscheduled"><b>ไม่ระบุเวลา (${untimed.length})</b>${untimed.map(v40Chip).join('')}</div>`;
+ }else{$('dailyPanelBody').innerHTML=`<p class="muted">${items.length} งาน</p>`+(items.map(t=>`<div class="v40-daily-item"><span class="v40-priority ${v40PriorityClass(t)}">${esc(t.priority||'P3')}</span>${v40Chip(t)}<small>${esc(taskTeamLabel(t))} · ${esc(taskSchedule(t))} · ${esc(t.status)} · ${Number(t.progress)||0}%</small></div>`).join('')||'<p class="muted">ไม่มีงานในวันนี้</p>');}
+}
 function renderCalendar(){
- if(calendarMode!=="month"){renderCalendarAgenda();return;}
- const y=month.getFullYear(),m=month.getMonth();
- $('monthTitle').textContent=month.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
- const first=new Date(y,m,1),offset=first.getDay(),last=new Date(y,m+1,0);
- const count=Math.ceil((offset+last.getDate())/7)*7;
- const base=new Date(y,m,1-offset);
- const active=tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed');
+ if(calendarMode!=='month'){renderCalendarAgenda();v40Panel(dateOnly(month));return;}
+ const y=month.getFullYear(),m=month.getMonth();$('monthTitle').textContent=month.toLocaleDateString('th-TH',{month:'long',year:'numeric'});
+ const offset=new Date(y,m,1).getDay(),count=Math.ceil((offset+new Date(y,m+1,0).getDate())/7)*7,base=new Date(y,m,1-offset);
  let html=['อา','จ','อ','พ','พฤ','ศ','ส'].map(x=>`<div class="muted cal-head">${x}</div>`).join('');
- for(let i=0;i<count;i++){
-  const date=new Date(base);date.setDate(base.getDate()+i);
-  const key=dateOnly(date);
-  const daily=active.filter(t=>{
-   const a=t.start_date||t.due_date,b=t.due_date||t.start_date;
-   return a&&b&&a<=key&&b>=key;
-  }).sort((a,b)=>(a.start_time||'').localeCompare(b.start_time||'')||String(a.title).localeCompare(String(b.title)));
-  const items=daily.map(t=>{
-   const start=t.start_date||t.due_date;
-   const time=start===key&&t.start_time?String(t.start_time).slice(0,5)+' · ':'';
-   return `<button type="button" class="cal-daily-task" data-task-detail="${esc(t.id)}" style="background:${memberColor(t.assigned_to)}" title="${esc(t.title)} | ${esc(taskOwnerLabel(t))} | ${esc(taskSchedule(t))} | ${esc(t.status)}">${esc(time+t.title)} <span class="cal-daily-owner">(${esc(taskTeamLabel(t))})</span></button>`;
-  }).join('');
-  html+=`<div class="day cal-daily-day ${date.getMonth()===m?'':'outside'}"><b>${date.getDate()}</b><div class="cal-daily-list">${items}</div></div>`;
+ for(let i=0;i<count;i++){const d=new Date(base);d.setDate(base.getDate()+i);const key=dateOnly(d),daily=v40DayItems(key),visible=daily.slice(0,3);
+ html+=`<div class="day cal-daily-day ${d.getMonth()===m?'':'outside'} ${key===v40SelectedDate?'v40-day-selected':''}"><button class="v40-day-btn" type="button" data-v40-day="${key}">${d.getDate()}</button><div class="cal-daily-list">${visible.map(v40Chip).join('')}${daily.length>3?`<button class="v40-more" type="button" data-v40-day="${key}">+${daily.length-3} More</button>`:''}</div></div>`;
  }
- $('calendarGrid').classList.add('calendar');$('calendarGrid').innerHTML=html;
+ $('calendarGrid').classList.add('calendar');$('calendarGrid').innerHTML=html;v40Panel(v40SelectedDate);
 }
 function renderRemainingTasks(){
  const counts=new Map();let unassigned=0;
@@ -105,13 +107,11 @@ function renderGantt(){
  $('ganttGrid').innerHTML=`<div class="gantt" style="grid-template-columns:240px repeat(${ganttDays},minmax(34px,1fr))">${h}</div>`;
 }
 function renderCalendarAgenda(){
- const selected=new Date(month.getFullYear(),month.getMonth(),month.getDate());
- const begin=new Date(selected);
+ const selected=new Date(month.getFullYear(),month.getMonth(),month.getDate()),begin=new Date(selected);
  if(calendarMode==='week')begin.setDate(begin.getDate()-begin.getDay());
- const count=calendarMode==='week'?7:1;
- const days=Array.from({length:count},(_,i)=>{const d=new Date(begin);d.setDate(begin.getDate()+i);return dateOnly(d)});
- $('monthTitle').textContent=calendarMode==='week'?`${days[0]} — ${days[days.length-1]}`:selected.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
- $('calendarGrid').classList.remove('calendar');$('calendarGrid').innerHTML=`<div class="agenda-grid">${days.map(d=>`<div class="agenda-day"><strong>${new Date(d+'T12:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}</strong>${tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed'&&(t.start_date||t.due_date)<=d&&(t.due_date||t.start_date)>=d).map(t=>`<button type="button" class="agenda-task" data-task-detail="${esc(t.id)}" style="background:${memberColor(t.assigned_to)}">${esc(t.title)} (${esc(taskTeamLabel(t))})</button>`).join('')||'<p class="muted">ไม่มีงาน</p>'}</div>`).join('')}</div>`;
+ const days=Array.from({length:calendarMode==='week'?7:1},(_,i)=>{const d=new Date(begin);d.setDate(begin.getDate()+i);return dateOnly(d)});
+ $('monthTitle').textContent=calendarMode==='week'?`${days[0]} — ${days.at(-1)}`:selected.toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
+ $('calendarGrid').classList.remove('calendar');$('calendarGrid').innerHTML=`<div class="agenda-grid">${days.map(d=>`<div class="agenda-day"><button type="button" class="v40-day-btn" data-v40-day="${d}">${new Date(d+'T12:00:00').toLocaleDateString('th-TH',{weekday:'short',day:'numeric',month:'short'})}</button>${v40DayItems(d).slice(0,3).map(v40Chip).join('')}${v40DayItems(d).length>3?`<button type="button" class="v40-more" data-v40-day="${d}">+${v40DayItems(d).length-3} More</button>`:''}</div>`).join('')}</div>`;
 }
 function openTaskDetail(id){
  const t=tasks.find(x=>x.id===id);if(!t)return;
@@ -413,5 +413,25 @@ async function initRequestForm(){if(!user)return;$('requesterName').value=profil
 const originalRequestSignedIn=signedIn;
 signedIn=async function(u){await originalRequestSignedIn(u);if(u){initRequestForm();if(profile?.role==='guest')await loadTaskRequests();}};
 
+
+// V4.0: Read-only derived analytics; no new SQL tables or elevated privileges.
+function v40RefreshOwnerOptions(){const sel=$('calOwner'),old=sel.value;sel.innerHTML='<option value="">ทุกคน</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${esc(m.id)}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');sel.value=old;
+ const cat=$('calCategory'),prev=cat.value;cat.innerHTML='<option value="">ทุกประเภท</option>'+[...new Set(tasks.map(t=>t.category).filter(Boolean))].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');cat.value=prev;}
+function v40RenderDashboard(){const active=tasks.filter(t=>t.status!=='Completed');const rows=members.filter(m=>m.role!=='guest').map(m=>({name:m.display_name||m.id.slice(0,8),count:active.filter(t=>taskMemberIds(t).includes(m.id)).length})).sort((a,b)=>b.count-a.count);const max=Math.max(1,...rows.map(x=>x.count));$('v40Workload').innerHTML=rows.map(r=>`<div class="v40-work-row"><span title="${esc(r.name)}">${esc(r.name)}</span><div class="v40-work-track"><div class="v40-work-fill" style="width:${r.count/max*100}%"></div></div><strong>${r.count}</strong></div>`).join('')||'<p class="muted">ไม่มีข้อมูล</p>';
+ $('v40Priority').innerHTML=['P1','P2','P3','P4'].map(p=>`<div class="remaining-row"><span class="v40-priority v40-${p.toLowerCase()}">${p}</span><strong>${active.filter(t=>(t.priority||'P3')===p).length}</strong></div>`).join('');}
+function v40WeekStartValue(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-((x.getDay()+6)%7));return dateOnly(x);}
+function v40WeeklyItems(){const start=$('v40WeekStart').value||v40WeekStartValue(today()),d=new Date(start+'T12:00:00');d.setDate(d.getDate()+6);const end=dateOnly(d);return {start,end,items:tasks.filter(t=>{const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return a&&b&&a<=end&&b>=start;})};}
+function v40WeeklyReport(){const {start,end,items}=v40WeeklyItems(),completed=items.filter(t=>t.status==='Completed').length,active=items.filter(t=>t.status!=='Completed').length,overdue=items.filter(t=>t.status!=='Completed'&&t.due_date&&t.due_date<today()).length;
+ $('v40WeekSummary').innerHTML=`<p class="muted">${start} ถึง ${end} · งานที่มีช่วงเวลาทับซ้อนสัปดาห์นี้</p><div class="v40-summary-cards"><span>ทั้งหมด <b>${items.length}</b></span><span>คงเหลือ <b>${active}</b></span><span>Completed <b>${completed}</b></span><span>Overdue <b>${overdue}</b></span></div><div class="scroll"><table><thead><tr><th>งาน</th><th>Priority</th><th>สถานะ</th><th>Progress</th><th>ทีม</th><th>Due</th></tr></thead><tbody>${items.map(t=>`<tr><td>${esc(t.title)}</td><td>${esc(t.priority||'P3')}</td><td>${esc(t.status)}</td><td>${Number(t.progress)||0}%</td><td>${esc(taskTeamLabel(t))}</td><td>${esc(t.due_date||'—')}</td></tr>`).join('')}</tbody></table></div>`;}
+function v40CsvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
+function v40ExportWeek(){const {start,end,items}=v40WeeklyItems();const cols=['Title','Category','Priority','Rank','Status','Progress','Main PIC','Co-PIC','Start Date','Start Time','Due Date','End Time'];const lines=[cols,...items.map(t=>[t.title,t.category,t.priority||'P3',t.rank_order||'',t.status,t.progress,taskOwnerLabel(t),taskCoNames(t).join('; '),t.start_date,t.start_time,t.due_date,t.end_time])];const csv='\ufeff'+lines.map(row=>row.map(v40CsvCell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`MT56251_Weekly_${start}_${end}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+$('v40WeekStart').value=v40WeekStartValue(today());
+$('v40WeekStart').onchange=v40WeeklyReport;
+$('v40WeekThis').onclick=()=>{$('v40WeekStart').value=v40WeekStartValue(today());v40WeeklyReport();};
+$('v40WeekExport').onclick=v40ExportWeek;
+$('v40MyTasks').onchange=render;
+for(const id of ['calOwner','calCategory','calStatus','calPriority','calMine'])$(id).onchange=renderCalendar;
+$('calClear').onclick=()=>{for(const id of ['calOwner','calCategory','calStatus','calPriority'])$(id).value='';$('calMine').checked=false;renderCalendar();};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-v40-day]');if(!b)return;const day=b.dataset.v40Day;month=new Date(day+'T12:00:00');v40Panel(day);renderCalendar();});
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
