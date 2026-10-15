@@ -481,7 +481,13 @@ document.addEventListener('click',e=>{if(!$('calOwnerWidget').contains(e.target)
 
 $('calClear').onclick=()=>{for(const id of ['calCategory','calStatus','calPriority'])$(id).value='';v405SelectedOwners=null;v405RenderOwnerMenu();$('calMine').checked=false;renderCalendar();};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-v40-day]');if(!b)return;const day=b.dataset.v40Day;month=new Date(day+'T12:00:00');v40Panel(day);renderCalendar();});
+// V4.0.10: Today button must be bound inside this closure.
+// Preserve the current Month / Week / Day mode and all active filters.
+$('calendarToday').onclick=()=>{
+  const now=new Date();
+  month=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  v40SelectedDate=today();
+  renderCalendar();
+};
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
-// V4.0.3: Jump to the current local date.
-$('calendarToday').onclick=()=>{month=new Date();v40SelectedDate=today();renderCalendar();};
