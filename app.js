@@ -51,10 +51,13 @@ function renderDashboardCharts(){
 
 // V4.0 Calendar filters and compact per-day items.
 let v40SelectedDate=today();
+// null = all members; Set = explicitly selected members.
+let v405SelectedOwners = null;
+
 function v40PriorityClass(t){return 'v40-'+String(t.priority||'P3').toLowerCase();}
 function v40CalendarTasks(){
- const owner=$('calOwner').value,category=$('calCategory').value,status=$('calStatus').value,priority=$('calPriority').value,mine=$('calMine').checked;
- return tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed'&&(!owner||taskMemberIds(t).includes(owner))&&(!category||t.category===category)&&(!status||t.status===status)&&(!priority||(t.priority||'P3')===priority)&&(!mine||taskMemberIds(t).includes(user?.id)));
+ const ownerIds=v405SelectedOwners,category=$('calCategory').value,status=$('calStatus').value,priority=$('calPriority').value,mine=$('calMine').checked;
+ return tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed'&&(ownerIds===null||ownerIds.size===0||taskMemberIds(t).some(id=>ownerIds.has(id)))&&(!category||t.category===category)&&(!status||t.status===status)&&(!priority||(t.priority||'P3')===priority)&&(!mine||taskMemberIds(t).includes(user?.id)));
 }
 function v40InDay(t,key){const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return !!(a&&b&&a<=key&&b>=key);}
 function v40DayItems(key){return v40CalendarTasks().filter(t=>v40InDay(t,key)).sort((a,b)=>Number((a.priority||'P3').slice(1))-Number((b.priority||'P3').slice(1))||(a.start_time||'').localeCompare(b.start_time||'')||(a.rank_order||9999)-(b.rank_order||9999));}
@@ -424,8 +427,22 @@ signedIn=async function(u){await originalRequestSignedIn(u);if(u){initRequestFor
 
 
 // V4.0: Read-only derived analytics; no new SQL tables or elevated privileges.
-function v40RefreshOwnerOptions(){const sel=$('calOwner'),old=sel.value;sel.innerHTML='<option value="">ทุกคน</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${esc(m.id)}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');sel.value=old;
- const cat=$('calCategory'),prev=cat.value;cat.innerHTML='<option value="">ทุกประเภท</option>'+[...new Set(tasks.map(t=>t.category).filter(Boolean))].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');cat.value=prev;}
+function v405UpdateOwnerLabel(){
+ const count=v405SelectedOwners?.size;
+ $('calOwnerButton').textContent=v405SelectedOwners===null||count===0?'ทุกคน':`เลือกแล้ว ${count} คน`;
+ $('calOwnerButton').setAttribute('aria-expanded',String(!$('calOwnerMenu').classList.contains('hidden')));
+}
+function v405RenderOwnerMenu(){
+ const list=$('calOwnerList');
+ list.innerHTML=members.filter(m=>m.role!=='guest').map(m=>`<label class="v405-member-option"><input type="checkbox" value="${esc(m.id)}" ${v405SelectedOwners===null||v405SelectedOwners.has(m.id)?'checked':''}><span class="user-dot" style="background:${memberColor(m.id)}"></span><span>${esc(m.display_name||m.id.slice(0,8))}</span></label>`).join('');
+ v405UpdateOwnerLabel();
+}
+function v40RefreshOwnerOptions(){
+ const valid=new Set(members.filter(m=>m.role!=='guest').map(m=>m.id));
+ if(v405SelectedOwners!==null){v405SelectedOwners=new Set([...v405SelectedOwners].filter(id=>valid.has(id)));if(v405SelectedOwners.size===valid.size)v405SelectedOwners=null;}
+ v405RenderOwnerMenu();
+ const cat=$('calCategory'),prev=cat.value;cat.innerHTML='<option value="">ทุกประเภท</option>'+[...new Set(tasks.map(t=>t.category).filter(Boolean))].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');cat.value=prev;
+}
 function v40RenderDashboard(){const active=tasks.filter(t=>t.status!=='Completed');const rows=members.filter(m=>m.role!=='guest').map(m=>({name:m.display_name||m.id.slice(0,8),count:active.filter(t=>taskMemberIds(t).includes(m.id)).length})).sort((a,b)=>b.count-a.count);const max=Math.max(1,...rows.map(x=>x.count));$('v40Workload').innerHTML=rows.map(r=>`<div class="v40-work-row"><span title="${esc(r.name)}">${esc(r.name)}</span><div class="v40-work-track"><div class="v40-work-fill" style="width:${r.count/max*100}%"></div></div><strong>${r.count}</strong></div>`).join('')||'<p class="muted">ไม่มีข้อมูล</p>';
  $('v40Priority').innerHTML=['P1','P2','P3','P4'].map(p=>`<div class="remaining-row"><span class="v40-priority v40-${p.toLowerCase()}">${p}</span><strong>${active.filter(t=>(t.priority||'P3')===p).length}</strong></div>`).join('');}
 function v40WeekStartValue(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-((x.getDay()+6)%7));return dateOnly(x);}
@@ -439,8 +456,14 @@ $('v40WeekStart').onchange=v40WeeklyReport;
 $('v40WeekThis').onclick=()=>{$('v40WeekStart').value=v40WeekStartValue(today());v40WeeklyReport();};
 $('v40WeekExport').onclick=v40ExportWeek;
 $('v40MyTasks').onchange=render;
-for(const id of ['calOwner','calCategory','calStatus','calPriority','calMine'])$(id).onchange=renderCalendar;
-$('calClear').onclick=()=>{for(const id of ['calOwner','calCategory','calStatus','calPriority'])$(id).value='';$('calMine').checked=false;renderCalendar();};
+for(const id of ['calCategory','calStatus','calPriority','calMine'])$(id).onchange=renderCalendar;
+$('calOwnerButton').onclick=()=>{$('calOwnerMenu').classList.toggle('hidden');v405UpdateOwnerLabel();};
+$('calOwnerAll').onclick=()=>{v405SelectedOwners=null;v405RenderOwnerMenu();renderCalendar();};
+$('calOwnerNone').onclick=()=>{v405SelectedOwners=new Set();v405RenderOwnerMenu();renderCalendar();};
+$('calOwnerList').onchange=e=>{if(!e.target.matches('input[type="checkbox"]'))return;const all=members.filter(m=>m.role!=='guest').map(m=>m.id);const chosen=new Set([...$('calOwnerList').querySelectorAll('input:checked')].map(x=>x.value));v405SelectedOwners=chosen.size===all.length?null:chosen;v405UpdateOwnerLabel();renderCalendar();};
+document.addEventListener('click',e=>{if(!$('calOwnerWidget').contains(e.target)){$('calOwnerMenu').classList.add('hidden');v405UpdateOwnerLabel();}});
+
+$('calClear').onclick=()=>{for(const id of ['calCategory','calStatus','calPriority'])$(id).value='';v405SelectedOwners=null;v405RenderOwnerMenu();$('calMine').checked=false;renderCalendar();};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-v40-day]');if(!b)return;const day=b.dataset.v40Day;month=new Date(day+'T12:00:00');v40Panel(day);renderCalendar();});
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
