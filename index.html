@@ -184,6 +184,26 @@ main:has(#calendar:not(.hidden)){max-width:none;width:100%;padding-left:clamp(12
 .v405-member-option input{width:16px!important;height:16px!important;flex:0 0 16px;accent-color:#d7193f;margin:0!important}
 .v405-member-option span:last-child{overflow-wrap:anywhere}
 .v405-owner-hint{font-size:11px;margin:8px 0 0}
+
+/* MT56251 V4.0.6: center the primary navigation consistently on every page. */
+#app > nav#nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+#app > nav#nav > button { flex: 0 0 auto; }
+@media (max-width: 650px) {
+  #app > nav#nav {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+}
 </style></head><body><header><h1>MT56251 | Team Work Management</h1><div class="row"><span id="identity"></span><div class="notif-wrap"><button id="notifBell" type="button" class="secondary" aria-label="การแจ้งเตือน" aria-expanded="false">🔔 <span id="notifCount" class="notif-count hidden">0</span></button><div id="notifPanel" class="notif-panel hidden"><div class="notif-header"><strong>การแจ้งเตือน</strong><button id="notifRefresh" type="button" class="secondary">รีเฟรช</button></div><p id="notifInfo" class="muted"></p><div id="notifList"></div><button id="notifReadAll" type="button" class="secondary">อ่านทั้งหมดแล้ว</button></div></div><button id="selfPassword" class="secondary hidden">เปลี่ยนรหัสผ่าน</button><button id="logout" class="secondary hidden">ออกจากระบบ</button></div></header><main>
 <section id="setup"><h2>เชื่อมต่อ Supabase</h2><p>กรอก Publishable Key ในไฟล์ <code>config.js</code> ก่อนเปิดใช้งาน ห้ามใช้ Secret Key หรือ Database Password</p><p id="setupMsg" class="error"></p></section>
 <section id="auth" class="login hidden"><h2>เข้าสู่ระบบ MT56251</h2><form id="loginForm"><label>Email</label><input id="email" type="email" required autocomplete="username"><label>Password</label><input id="password" type="password" required autocomplete="current-password"><p><button type="submit">เข้าสู่ระบบ</button> <button type="button" class="secondary" id="forgot">ส่งอีเมลรีเซ็ตรหัสผ่าน</button> <a href="guest.html" class="guest-link" role="button">Guest / ขอรับบริการ</a></p></form><p id="loginMsg" class="error"></p><p class="muted">ผู้ดูแลสร้างบัญชีสมาชิกผ่าน Supabase Authentication ก่อน ระบบนี้ไม่มีการเปิดสมัครบัญชีสาธารณะ</p></section>
