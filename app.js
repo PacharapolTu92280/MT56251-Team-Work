@@ -4,7 +4,7 @@ const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],membe
 const dateOnly=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`};
 const today=()=>dateOnly(new Date());ganttStart=today();const show=(id,yes)=>$(id).classList.toggle('hidden',!yes);
 const msg=(s,bad=false)=>{$('notice').textContent=s;$('notice').className=bad?'error':'muted'};
-function view(name){if(name==='requests'&&profile?.role!=='admin')name='tasks';if(profile?.role==='guest')name='tasks';for(const id of ['dashboard','tasks','calendar','gantt','members','admin','requests'])show(id,id===name);document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));render();}
+function view(name){if(['requests','teams'].includes(name)&&profile?.role!=='admin')name='tasks';if(profile?.role==='guest')name='tasks';for(const id of ['dashboard','tasks','calendar','gantt','members','admin','requests','teams'])show(id,id===name);document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));render();}
 function memberColor(id){const m=members.find(x=>x.id===id);return m&&/^#[0-9a-f]{6}$/i.test(m.user_color||'')?m.user_color:'#8291a5'}
 function colorDot(id){return `<span class="user-dot" style="background:${memberColor(id)}" aria-hidden="true"></span>`}
 function taskSchedule(t){return [t.start_date||'—',t.start_time?String(t.start_time).slice(0,5):'', '→',t.due_date||'—',t.end_time?String(t.end_time).slice(0,5):''].filter(Boolean).join(' ')}
@@ -26,7 +26,7 @@ const q=$('search').value.trim().toLowerCase(),f=$('filter').value,owner=$('owne
  if(ownerSelect.innerHTML!==ownerOptions){ownerSelect.innerHTML=ownerOptions;ownerSelect.value=previousOwner;if(ownerSelect.value!==previousOwner)ownerSelect.value='';}
  $('taskTable').innerHTML=table(tasks.filter(t=>(!$('v40MyTasks').checked||taskMemberIds(t).includes(user?.id))&&(!f||t.status===f)&&(!owner||(owner==='__unassigned__'?!taskMemberIds(t).length:taskMemberIds(t).includes(owner)))&&(!q||[t.title,t.description,t.category,taskOwnerLabel(t),...taskCoNames(t)].some(x=>String(x||'').toLowerCase().includes(q)))));
 $('memberTable').innerHTML=`<table><tr><th>ชื่อ</th><th>Role</th><th>สี</th><th>จัดการ</th></tr>${members.map(m=>`<tr><td>${esc(m.display_name||m.id.slice(0,8))}</td><td>${esc(m.role)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${/^#[0-9a-f]{6}$/i.test(m.user_color)?m.user_color:'#2563eb'}"></span></td><td>${m.id===user?.id?'<button class="secondary" data-edit-name="1">✎ แก้ไขชื่อ</button> <button class="secondary" data-edit-color="1">🎨 เปลี่ยนสี</button>':''}</td></tr>`).join('')}</table>`;
-show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');document.querySelector('[data-view="requests"]').classList.toggle('hidden',profile?.role!=='admin');v40RefreshOwnerOptions();renderCalendar();renderGantt();renderRemainingTasks();v40RenderDashboard();v40WeeklyReport();if(!$('requests').classList.contains('hidden'))void loadTaskRequests();}
+show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');document.querySelector('[data-view="requests"]').classList.toggle('hidden',profile?.role!=='admin');document.querySelector('[data-view="teams"]').classList.toggle('hidden',profile?.role!=='admin');v40RefreshOwnerOptions();renderCalendar();renderGantt();renderRemainingTasks();v40RenderDashboard();v40WeeklyReport();if(!$('requests').classList.contains('hidden'))void loadTaskRequests();}
 
 // Dashboard charts use live tasks already loaded from Supabase. No external chart dependency.
 function renderDashboardCharts(){
@@ -495,5 +495,44 @@ $('calendarToday').onclick=()=>{
   v40SelectedDate=today();
   renderCalendar();
 };
+
+// V4.1 Phase 1 – client-side review only. No Graph tokens or Teams content persisted.
+const teams41MaxItems=25;
+let teams41Items=[];
+function teams41Split(raw){
+  const chunks=raw.split(/\n\s*\n|\n(?=(?:\d+[.)]|[-*•])\s+)/g).map(x=>x.trim()).filter(Boolean);
+  return (chunks.length>1?chunks:[raw.trim()]).slice(0,teams41MaxItems).map((chunk,i)=>{
+    const first=chunk.split('\n').map(s=>s.trim()).find(Boolean)||`Action ${i+1}`;
+    const title=first.replace(/^(?:\d+[.)]|[-*•])\s*/, '').slice(0,200);
+    const pic=chunk.match(/(?:PIC|Owner|ผู้รับผิดชอบ|To)\s*[:：]\s*([^\n]+)/i)?.[1]?.trim()||'';
+    const due=chunk.match(/(?:Due\s*Date|Due|Target|กำหนดเสร็จ)\s*[:：]\s*([^\n]+)/i)?.[1]?.trim()||'';
+    return {title,details:chunk.slice(0,3000),pic,due};
+  });
+}
+function teams41Render(){
+  const box=$('teams41Candidates');
+  box.innerHTML=teams41Items.length?teams41Items.map((item,i)=>`<div class="teams41-item"><h4>${i+1}. ${esc(item.title)}</h4><p><b>PIC (ข้อความต้นทาง):</b> ${esc(item.pic||'ไม่พบ')}</p><p><b>Due (ข้อความต้นทาง):</b> ${esc(item.due||'ไม่พบ')}</p><p class="muted">ตรวจสอบชื่องานและผู้รับผิดชอบอีกครั้งก่อนบันทึก</p><button type="button" data-teams41-review="${i}">เปิดฟอร์ม Add Task</button></div>`).join(''):'<p class="muted">ยังไม่มีรายการ</p>';
+}
+$('teams41Analyze').onclick=()=>{
+  if(profile?.role!=='admin')return;
+  const raw=$('teams41Source').value.trim();
+  if(!raw){$('teams41Info').textContent='กรุณาวางข้อความก่อน';return;}
+  teams41Items=teams41Split(raw);
+  $('teams41Info').textContent=`พบ ${teams41Items.length} รายการเบื้องต้น (ยังไม่ได้บันทึก) · การแยกข้อความเป็นแบบพื้นฐาน ต้องตรวจสอบด้วยตนเอง`;
+  teams41Render();
+};
+$('teams41Clear').onclick=()=>{teams41Items=[];$('teams41Source').value='';$('teams41Link').value='';$('teams41Info').textContent='';teams41Render()};
+$('teams41Candidates').addEventListener('click',e=>{
+  const b=e.target.closest('[data-teams41-review]');if(!b||profile?.role!=='admin')return;
+  const item=teams41Items[Number(b.dataset.teams41Review)];if(!item)return;
+  const duplicate=tasks.some(t=>t.title.trim().toLowerCase()===item.title.trim().toLowerCase());
+  openTask(null);
+  $('title').value=item.title;
+  const link=$('teams41Link').value.trim();
+  const safeLink=/^https:\/\/([a-z0-9-]+\.)*teams\.microsoft\.com\//i.test(link)?link:'';
+  $('description').value=item.details+(safeLink?'\n\nTeams source: '+safeLink:'');
+  $('taskMsg').textContent=(duplicate?'พบชื่องานซ้ำใน Tasks – โปรดตรวจสอบก่อนบันทึก. ':'')+'ตรวจสอบ PIC, Due Date, Priority และรายละเอียดก่อนกดบันทึก';
+});
+
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
