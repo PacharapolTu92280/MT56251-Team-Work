@@ -14,7 +14,8 @@ function taskTeamLabel(t){const n=taskCoIds(t).length;return taskOwnerLabel(t)+(
 function taskMemberIds(t){return [...new Set([t.assigned_to,...taskCoIds(t)].filter(Boolean))]}
 function taskOwnerLabel(t){return t.assigned_to ? memberName(t.assigned_to) : 'ยังไม่ระบุผู้รับผิดชอบ'}
 function memberName(id){const m=members.find(x=>x.id===id);return m?m.display_name||m.id.slice(0,8):'—'}
-function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="v40-priority ${v40PriorityClass(t)}">${esc(t.priority)} #${esc(t.rank_order||'—')}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><button class="secondary" data-edit="${t.id}">แก้ไข</button> <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button> <button class="secondary" data-attachment-task="${t.id}">แนบไฟล์</button>${profile?.role==='admin'?` <button class="secondary" data-rank-task="${t.id}">Priority / Rank</button> <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
+function canManageTask(t){return profile?.role==='admin'||(profile?.role==='member'&&t.assigned_to===user?.id)}
+function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="v40-priority ${v40PriorityClass(t)}">${esc(t.priority)}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td>${canManageTask(t)?`<button class="secondary" data-edit="${t.id}">แก้ไข</button>`:''} <button class="secondary" data-comment="${t.id}">Comments</button> <button class="secondary" data-history="${t.id}">History</button> ${canManageTask(t)?`<button class="secondary" data-attachment-task="${t.id}">แนบไฟล์</button> <button class="secondary" data-priority-task="${t.id}">Priority</button> <button class="danger" data-delete-task="${t.id}">ลบงาน</button>`:''}</td></tr>`).join('')}</tbody></table>`}
 function render(){const total=tasks.length,done=tasks.filter(t=>t.status==='Completed').length,late=tasks.filter(t=>t.due_date&&t.due_date<today()&&t.status!=='Completed').length,doing=tasks.filter(t=>t.status==='In Progress').length;
 $('metrics').innerHTML=[['Total Tasks',total],['In Progress',doing],['Completed',done],['Overdue',late]].map(([k,v])=>`<div class="metric"><small>${k}</small><strong>${v}</strong></div>`).join('');
  renderDashboardCharts();
@@ -60,7 +61,7 @@ function v40CalendarTasks(){
  return tasks.filter(t=>String(t.status||'').trim().toLowerCase()!=='completed'&&(ownerIds===null||ownerIds.size===0||taskMemberIds(t).some(id=>ownerIds.has(id)))&&(!category||t.category===category)&&(!status||t.status===status)&&(!priority||(t.priority||'P3')===priority)&&(!mine||taskMemberIds(t).includes(user?.id)));
 }
 function v40InDay(t,key){const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return !!(a&&b&&a<=key&&b>=key);}
-function v40DayItems(key){return v40CalendarTasks().filter(t=>v40InDay(t,key)).sort((a,b)=>Number((a.priority||'P3').slice(1))-Number((b.priority||'P3').slice(1))||(a.start_time||'').localeCompare(b.start_time||'')||(a.rank_order||9999)-(b.rank_order||9999));}
+function v40DayItems(key){return v40CalendarTasks().filter(t=>v40InDay(t,key)).sort((a,b)=>Number((a.priority||'P3').slice(1))-Number((b.priority||'P3').slice(1))||(a.start_time||'').localeCompare(b.start_time||''));}
 function v40Chip(t){return `<button type="button" class="v40-event" data-task-detail="${esc(t.id)}" style="background:${memberColor(t.assigned_to)}" title="${esc(t.title)} | ${esc(taskTeamLabel(t))}">${esc(t.priority||'P3')} · ${esc(t.title)}</button>`;}
 function v40Panel(key){v40SelectedDate=key;const items=v40DayItems(key);const heading=new Date(key+'T12:00:00').toLocaleDateString('th-TH',{weekday:'long',day:'numeric',month:'long',year:'numeric'});$('dailyPanel').querySelector('h3').textContent=heading;
  if(calendarMode==='day'){
@@ -163,7 +164,7 @@ function renderCoPicChoices(t){
  const main=$('assigned_to').value;
  $('coPicChoices').innerHTML=members.filter(m=>m.id!==main&&m.role!=='guest').map(m=>`<label class="co-pic-item"><input type="checkbox" name="co_pic" value="${esc(m.id)}" ${selected.has(m.id)?'checked':''}><span class="user-dot" style="background:${memberColor(m.id)}"></span>${esc(m.display_name||m.id.slice(0,8))}</label>`).join('');
 }
-function openTask(id){const t=tasks.find(x=>x.id===id);$('taskForm').reset();$('taskId').value=t?.id||'';$('dialogTitle').textContent=t?'แก้ไขงาน':'เพิ่มงาน';for(const k of ['title','description','category','status','progress','start_date','due_date','start_time','end_time'])if(t&&t[k]!=null)$(k).value=t[k];$('assigned_to').innerHTML='<option value="">ไม่ระบุ</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${m.id}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');$('assigned_to').value=t?.assigned_to||'';$('taskPriority').value=t?.priority||'P3';$('taskPriority').disabled=!['admin','member'].includes(profile?.role);$('taskPriority').title='กำหนดระดับความสำคัญของงานที่มีสิทธิ์แก้ไข';renderCoPicChoices(t);mt408SyncFromStatus();$('taskMsg').textContent='';$('taskDialog').showModal();}
+function openTask(id){const t=tasks.find(x=>x.id===id);if(t&&!canManageTask(t)){msg('เฉพาะ Main PIC หรือ Admin เท่านั้นที่แก้ไขงานได้',true);return;}$('taskForm').reset();$('taskId').value=t?.id||'';$('dialogTitle').textContent=t?'แก้ไขงาน':'เพิ่มงาน';for(const k of ['title','description','category','status','progress','start_date','due_date','start_time','end_time'])if(t&&t[k]!=null)$(k).value=t[k];$('assigned_to').innerHTML='<option value="">ไม่ระบุ</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${m.id}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');$('assigned_to').value=t?.assigned_to||'';$('taskPriority').value=t?.priority||'P3';$('taskPriority').disabled=!['admin','member'].includes(profile?.role);$('taskPriority').title='กำหนดระดับความสำคัญของงานที่มีสิทธิ์แก้ไข';renderCoPicChoices(t);mt408SyncFromStatus();$('taskMsg').textContent='';$('taskDialog').showModal();}
 async function loadComments(){if(!commentTask)return;const {data,error}=await db.from('comments').select('*').eq('task_id',commentTask).order('created_at');$('commentsList').innerHTML=error?esc(error.message):(data||[]).map(c=>`<p><b>${esc(memberName(c.author_id))}</b> <small>${new Date(c.created_at).toLocaleString('th-TH')}</small><br>${esc(c.message)}</p>`).join('')||'<p class="muted">ยังไม่มีความคิดเห็น</p>';}
 async function openComments(id){commentTask=id;$('commentTitle').textContent='Comments: '+(tasks.find(t=>t.id===id)?.title||'');$('commentMsg').textContent='';$('commentsDialog').showModal();await loadComments();}
 async function boot(){if(!window.supabase||!cfg.supabaseUrl||!cfg.publishableKey||cfg.publishableKey.includes('PASTE_')){$('setupMsg').textContent='ยังไม่ได้ใส่ Publishable Key ใน config.js หรือโหลด Supabase library ไม่สำเร็จ';return}db=window.supabase.createClient(cfg.supabaseUrl,cfg.publishableKey);const {data,error}=await db.auth.getSession();if(error)console.warn(error);await signedIn(data?.session?.user||null);db.auth.onAuthStateChange((_event,session)=>{if(session?.user?.id!==user?.id)void signedIn(session?.user||null)});}
@@ -190,7 +191,7 @@ function mt408SyncFromProgress(){
 }
 $('status').addEventListener('change',mt408SyncFromStatus);
 $('progress').addEventListener('input',mt408SyncFromProgress);
-$('taskForm').onsubmit=async e=>{e.preventDefault();const id=$('taskId').value;mt408SyncFromProgress();mt408SyncFromStatus();const data={title:$('title').value.trim(),description:$('description').value,category:$('category').value,status:$('status').value,progress:Number($('progress').value),start_date:$('start_date').value||null,due_date:$('due_date').value||null,start_time:$('start_time').value||null,end_time:$('end_time').value||null,assigned_to:$('assigned_to').value||null};if(data.start_date&&data.due_date&&data.start_date>data.due_date){$('taskMsg').textContent='Due Date ต้องไม่ก่อน Start Date';return}if(data.start_date&&data.due_date&&data.start_date===data.due_date&&data.start_time&&data.end_time&&data.end_time<data.start_time){$('taskMsg').textContent='End Time ต้องไม่ก่อน Start Time ในวันเดียวกัน';return;}const result=id?await db.from('tasks').update(data).eq('id',id):await db.from('tasks').insert({...data,created_by:user.id}).select('id').single();if(result.error){$('taskMsg').textContent=result.error.message;return}
+$('taskForm').onsubmit=async e=>{e.preventDefault();const id=$('taskId').value;if(id&&!canManageTask(tasks.find(t=>t.id===id))){$('taskMsg').textContent='ไม่มีสิทธิ์แก้ไขงานนี้';return;}mt408SyncFromProgress();mt408SyncFromStatus();const data={title:$('title').value.trim(),description:$('description').value,category:$('category').value,status:$('status').value,progress:Number($('progress').value),start_date:$('start_date').value||null,due_date:$('due_date').value||null,start_time:$('start_time').value||null,end_time:$('end_time').value||null,assigned_to:$('assigned_to').value||null};if(data.start_date&&data.due_date&&data.start_date>data.due_date){$('taskMsg').textContent='Due Date ต้องไม่ก่อน Start Date';return}if(data.start_date&&data.due_date&&data.start_date===data.due_date&&data.start_time&&data.end_time&&data.end_time<data.start_time){$('taskMsg').textContent='End Time ต้องไม่ก่อน Start Time ในวันเดียวกัน';return;}const result=id?await db.from('tasks').update(data).eq('id',id):await db.from('tasks').insert({...data,created_by:user.id}).select('id').single();if(result.error){$('taskMsg').textContent=result.error.message;return}
  const savedId=id||result.data?.id;
  if(!savedId){$('taskMsg').textContent='บันทึกงานแล้ว แต่ไม่ได้รับ Task ID เพื่อบันทึก Co-PIC';await refresh();return;}
  // Priority is saved through a server-checked RPC; Admin retains rank control.
@@ -198,7 +199,7 @@ $('taskForm').onsubmit=async e=>{e.preventDefault();const id=$('taskId').value;m
   const old=tasks.find(x=>x.id===savedId);
   const selectedPriority=$('taskPriority').value;
   if(selectedPriority!==(old?.priority||'P3')){
-   const {error:priorityErr}=await db.rpc('team408_set_task_priority',{p_task_id:savedId,p_priority:selectedPriority});
+   const {error:priorityErr}=await db.rpc('team42_set_main_pic_priority',{p_task_id:savedId,p_priority:selectedPriority});
    if(priorityErr){$('taskMsg').textContent='บันทึกงานแล้ว แต่กำหนด Priority ไม่สำเร็จ: '+priorityErr.message;await refresh();return;}
   }
  }
@@ -236,19 +237,20 @@ $('export').onclick=()=>{const cols=['title','description','category','status','
 // Delete requires a fresh admin password verification on the server, never a publishable key.
 let pendingDeleteTaskId=null;
 function openDeleteTask(id){
-  if(profile?.role!=='admin')return;
-  const t=tasks.find(x=>x.id===id);if(!t)return;
+  const t=tasks.find(x=>x.id===id);if(!t||!canManageTask(t))return;
   pendingDeleteTaskId=id;
   $('deleteTaskTitle').textContent=t.title;
   $('deleteTaskPassword').value='';
+  $('deleteTaskPassword').required=profile?.role==='admin';
+  $('deletePasswordWrap').classList.toggle('hidden',profile?.role!=='admin');
   $('deleteTaskMsg').textContent='';
   $('deleteTaskDialog').showModal();
 }
 $('cancelDeleteTask').onclick=()=>{$('deleteTaskDialog').close();pendingDeleteTaskId=null;};
 $('deleteTaskForm').onsubmit=async e=>{
   e.preventDefault();
-  if(profile?.role!=='admin'||!pendingDeleteTaskId)return;
-  const password=$('deleteTaskPassword').value;
+  if(!pendingDeleteTaskId||!canManageTask(tasks.find(t=>t.id===pendingDeleteTaskId)))return;
+  const password=profile?.role==='admin'?$('deleteTaskPassword').value:'';
   $('deleteTaskMsg').textContent='กำลังตรวจสอบสิทธิ์และย้ายงานไปถังขยะ...';
   const btn=$('confirmDeleteTask');btn.disabled=true;
   try{
@@ -378,10 +380,10 @@ signedIn=async function(u){await originalSignedIn(u);await setupNotifications();
 
 
 
-// Admin-only priority/rank editor for existing tasks.
-document.addEventListener('click',e=>{const b=e.target.closest('[data-rank-task]');if(!b||profile?.role!=='admin')return;const t=tasks.find(x=>x.id===b.dataset.rankTask);if(!t)return;$('rankTaskId').value=t.id;$('rankTaskTitle').textContent=t.title;$('rankPriority').value=t.priority||'P3';$('rankNumber').value=t.rank_order||1;$('rankMsg').textContent='';$('rankDialog').showModal();});
+// Priority-only editor for Admin and Main PIC.
+document.addEventListener('click',e=>{const b=e.target.closest('[data-priority-task]');if(!b)return;const t=tasks.find(x=>x.id===b.dataset.priorityTask);if(!t||!canManageTask(t))return;$('rankTaskId').value=t.id;$('rankTaskTitle').textContent=t.title;$('rankPriority').value=t.priority||'P3';$('rankMsg').textContent='';$('rankDialog').showModal();});
 $('rankCancel').onclick=()=>$('rankDialog').close();
-$('rankForm').onsubmit=async e=>{e.preventDefault();const {error}=await db.rpc('team39_set_task_rank',{p_task_id:$('rankTaskId').value,p_priority:$('rankPriority').value,p_rank:Number($('rankNumber').value)});if(error){$('rankMsg').textContent=error.message;return;}$('rankDialog').close();await refresh();};
+$('rankForm').onsubmit=async e=>{e.preventDefault();const {error}=await db.rpc('team42_set_main_pic_priority',{p_task_id:$('rankTaskId').value,p_priority:$('rankPriority').value});if(error){$('rankMsg').textContent=error.message;return;}$('rankDialog').close();await refresh();};
 document.querySelector('[data-view="admin"]').addEventListener('click',()=>{void loadGuestCalendarSetting();});
 // V3.9.3: one admin-controlled visibility setting for the entire Guest Calendar.
 async function loadGuestCalendarSetting(){
@@ -417,7 +419,7 @@ async function loadTaskRequests(){
  const {data,error}=await db.from('task_requests').select('*').order('created_at',{ascending:false}).limit(200);
  if(error){host.textContent='โหลดคำขอไม่ได้: '+error.message;return;}
  const isAdmin=profile.role==='admin';
- host.innerHTML=(data||[]).map(r=>`<article class="request-card"><div class="row" style="justify-content:space-between"><strong>${esc(r.title)}</strong>${requestBadge(r.status)}</div><p class="muted">${esc(r.requester_name)} · ${esc(r.contact_email)} · ${esc(r.category)} · Requested ${esc(r.requested_priority)} · Due ${esc(r.requested_due_date||'—')}</p><p>${esc(r.details||'')}</p>${r.status==='approved'?`<p class="muted">Approved: ${esc(r.final_priority||'')} · Rank ${esc(r.final_rank||'—')}</p>`:''}${r.status==='rejected'?`<p class="muted">เหตุผล: ${esc(r.review_note||'—')}</p>`:''}${isAdmin&&r.status==='pending'?`<button data-review-request="${esc(r.id)}" class="secondary">ตรวจสอบ / อนุมัติ</button>`:''}</article>`).join('')||'<p class="muted">ยังไม่มีคำขอ</p>';
+ host.innerHTML=(data||[]).map(r=>`<article class="request-card"><div class="row" style="justify-content:space-between"><strong>${esc(r.title)}</strong>${requestBadge(r.status)}</div><p class="muted">${esc(r.requester_name)} · ${esc(r.contact_email)} · ${esc(r.category)} · Requested ${esc(r.requested_priority)} · Due ${esc(r.requested_due_date||'—')}</p><p>${esc(r.details||'')}</p>${r.status==='approved'?`<p class="muted">Approved: ${esc(r.final_priority||'')}</p>`:''}${r.status==='rejected'?`<p class="muted">เหตุผล: ${esc(r.review_note||'—')}</p>`:''}${isAdmin&&r.status==='pending'?`<button data-review-request="${esc(r.id)}" class="secondary">ตรวจสอบ / อนุมัติ</button>`:''}</article>`).join('')||'<p class="muted">ยังไม่มีคำขอ</p>';
  $('requestAdminHint').classList.toggle('hidden',!isAdmin);
  $('requestNew').classList.add('hidden');
 }
@@ -433,13 +435,13 @@ document.addEventListener('click',async e=>{
  const btn=e.target.closest('[data-review-request]');if(!btn||profile?.role!=='admin')return;
  const id=btn.dataset.reviewRequest;const {data,error}=await db.from('task_requests').select('*').eq('id',id).single();if(error){alert(error.message);return;}
  $('reviewId').value=id;$('reviewTaskTitle').textContent=data.title;$('reviewPriority').value=data.requested_priority;
- $('reviewRank').value='';$('reviewNote').value='';$('reviewMainPic').innerHTML='<option value="">ยังไม่มอบหมาย</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${esc(m.id)}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');
+ $('reviewNote').value='';$('reviewMainPic').innerHTML='<option value="">ยังไม่มอบหมาย</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${esc(m.id)}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');
  $('reviewMsg').textContent='';$('reviewDialog').showModal();
 });
 $('reviewCancel').onclick=()=>$('reviewDialog').close();
 $('reviewForm').onsubmit=async e=>{
  e.preventDefault();const action=e.submitter?.value||'approve';$('reviewMsg').textContent='กำลังบันทึก...';
- const args={p_request_id:$('reviewId').value,p_decision:action,p_priority:$('reviewPriority').value,p_rank:$('reviewRank').value?Number($('reviewRank').value):null,p_main_pic:$('reviewMainPic').value||null,p_note:$('reviewNote').value.trim()};
+ const args={p_request_id:$('reviewId').value,p_decision:action,p_priority:$('reviewPriority').value,p_rank:null,p_main_pic:$('reviewMainPic').value||null,p_note:$('reviewNote').value.trim()};
  const {error}=await db.rpc('team39_review_request',args);if(error){$('reviewMsg').textContent=error.message;return;}
  $('reviewDialog').close();await refresh();await loadTaskRequests();
 };
@@ -472,7 +474,7 @@ function v40WeeklyItems(){const start=$('v40WeekStart').value||v40WeekStartValue
 function v40WeeklyReport(){const {start,end,items}=v40WeeklyItems(),completed=items.filter(t=>t.status==='Completed').length,active=items.filter(t=>t.status!=='Completed').length,overdue=items.filter(t=>t.status!=='Completed'&&t.due_date&&t.due_date<today()).length;
  $('v40WeekSummary').innerHTML=`<p class="muted">${start} ถึง ${end} · งานที่มีช่วงเวลาทับซ้อนสัปดาห์นี้</p><div class="v40-summary-cards"><span>ทั้งหมด <b>${items.length}</b></span><span>คงเหลือ <b>${active}</b></span><span>Completed <b>${completed}</b></span><span>Overdue <b>${overdue}</b></span></div><div class="scroll"><table><thead><tr><th>งาน</th><th>Priority</th><th>สถานะ</th><th>Progress</th><th>ทีม</th><th>Due</th></tr></thead><tbody>${items.map(t=>`<tr><td>${esc(t.title)}</td><td>${esc(t.priority||'P3')}</td><td>${esc(t.status)}</td><td>${Number(t.progress)||0}%</td><td>${esc(taskTeamLabel(t))}</td><td>${esc(t.due_date||'—')}</td></tr>`).join('')}</tbody></table></div>`;}
 function v40CsvCell(v){return '"'+String(v??'').replace(/"/g,'""')+'"';}
-function v40ExportWeek(){const {start,end,items}=v40WeeklyItems();const cols=['Title','Category','Priority','Rank','Status','Progress','Main PIC','Co-PIC','Start Date','Start Time','Due Date','End Time'];const lines=[cols,...items.map(t=>[t.title,t.category,t.priority||'P3',t.rank_order||'',t.status,t.progress,taskOwnerLabel(t),taskCoNames(t).join('; '),t.start_date,t.start_time,t.due_date,t.end_time])];const csv='\ufeff'+lines.map(row=>row.map(v40CsvCell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`MT56251_Weekly_${start}_${end}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function v40ExportWeek(){const {start,end,items}=v40WeeklyItems();const cols=['Title','Category','Priority','Status','Progress','Main PIC','Co-PIC','Start Date','Start Time','Due Date','End Time'];const lines=[cols,...items.map(t=>[t.title,t.category,t.priority||'P3',t.status,t.progress,taskOwnerLabel(t),taskCoNames(t).join('; '),t.start_date,t.start_time,t.due_date,t.end_time])];const csv='\ufeff'+lines.map(row=>row.map(v40CsvCell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=`MT56251_Weekly_${start}_${end}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 $('v40WeekStart').value=v40WeekStartValue(today());
 $('v40WeekStart').onchange=v40WeeklyReport;
 $('v40WeekThis').onclick=()=>{$('v40WeekStart').value=v40WeekStartValue(today());v40WeeklyReport();};
