@@ -82,7 +82,13 @@ function renderCalendar(){
 function renderRemainingTasks(){
  const counts=new Map();let unassigned=0;
  for(const t of tasks){if(t.status==='Completed')continue;const ids=taskMemberIds(t);if(!ids.length)unassigned++;for(const id of ids)counts.set(id,(counts.get(id)||0)+1);}
- const rows=members.map(m=>({id:m.id,name:m.display_name||m.id.slice(0,8),count:counts.get(m.id)||0,color:memberColor(m.id)})).sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
+ // Super Manager: hide only this member's row in Remaining Tasks.
+ // Keep the member account, role, task assignments and global totals unchanged.
+ const hiddenRemainingNames=new Set(['tanutnan homnan']);
+ const rows=members
+  .filter(m=>!hiddenRemainingNames.has(String(m.display_name||'').trim().toLowerCase()))
+  .map(m=>({id:m.id,name:m.display_name||m.id.slice(0,8),count:counts.get(m.id)||0,color:memberColor(m.id)}))
+  .sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name));
  const known=new Set(members.map(m=>m.id));
  for(const [id,count] of counts){if(!known.has(id))rows.push({id,name:'สมาชิกที่ไม่พบข้อมูล',count,color:'#8291a5'});}
  if(unassigned)rows.push({id:null,name:'ยังไม่กำหนดผู้รับผิดชอบ',count:unassigned,color:'#8291a5'});
