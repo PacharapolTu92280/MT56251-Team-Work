@@ -91,7 +91,7 @@
       setMsg(
         'ส่งคำขอสำเร็จ! Request ID: ' +
         data.requestId +
-        ' — โปรดเก็บเลขนี้ไว้สำหรับติดต่อ Admin',
+        (data.trackingCode ? ' | Tracking Code: '+data.trackingCode+' — โปรดเก็บทั้งสองรหัสไว้เพื่อตรวจสอบสถานะ' : ' — โปรดเก็บเลขนี้ไว้สำหรับติดต่อ Admin (Tracking Code ยังไม่พร้อม)'),
         true
       );
 

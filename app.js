@@ -445,17 +445,51 @@ $('guestCalendarVisibilityToggle').onclick=async()=>{
 
 // V3.9: Guest requests, review, priority and rank. All writes use server-checked RPCs.
 const requestStatusLabel={pending:'Pending Approval',approved:'Approved',rejected:'Rejected'};
-function requestBadge(s){return `<span class="pill">${esc(requestStatusLabel[s]||s)}</span>`;}
+const workStatusLabel={'Pending':'Pending','In Progress':'In Progress','On Hold':'On Hold','Completed':'Completed'};
+function requestBadge(s){return `<span class="pill">${esc(requestStatusLabel[s]||s||'Unknown')}</span>`;}
 async function loadTaskRequests(){
  if(!user||profile?.role!=='admin')return;
  const host=$('requestList');host.textContent='กำลังโหลดคำขอ...';
  const {data,error}=await db.from('task_requests').select('*').order('created_at',{ascending:false}).limit(200);
  if(error){host.textContent='โหลดคำขอไม่ได้: '+error.message;return;}
- const isAdmin=profile.role==='admin';
- host.innerHTML=(data||[]).map(r=>`<article class="request-card"><div class="row" style="justify-content:space-between"><strong>${esc(r.title)}</strong>${requestBadge(r.status)}</div><p class="muted">${esc(r.requester_name)} · ${esc(r.contact_email)} · ${esc(r.category)} · Requested ${esc(r.requested_priority)} · Due ${esc(r.requested_due_date||'—')}</p><p>${esc(r.details||'')}</p>${r.status==='approved'?`<p class="muted">Approved: ${esc(r.final_priority||'')}</p>`:''}${r.status==='rejected'?`<p class="muted">เหตุผล: ${esc(r.review_note||'—')}</p>`:''}${isAdmin&&r.status==='pending'?`<button data-review-request="${esc(r.id)}" class="secondary">ตรวจสอบ / อนุมัติ</button>`:''}</article>`).join('')||'<p class="muted">ยังไม่มีคำขอ</p>';
- $('requestAdminHint').classList.toggle('hidden',!isAdmin);
- $('requestNew').classList.add('hidden');
+ const requests=data||[];
+ const requestFilter=$('requestStatusFilter')?.value||'all';
+ const workFilter=$('requestWorkFilter')?.value||'all';
+ const linkedIds=[...new Set(requests.map(r=>r.linked_task_id).filter(Boolean))];
+ const linkedMap=new Map();
+ if(linkedIds.length){const {data:linked,error:linkedError}=await db.from('tasks').select('id,status,progress,assigned_to,deleted_at').in('id',linkedIds);
+ if(linkedError){host.textContent='โหลดสถานะ Task ไม่สำเร็จ: '+linkedError.message;return;}
+ for(const t of linked||[])linkedMap.set(t.id,t);}
+ const visible=requests.filter(r=>{
+  if(requestFilter!=='all'&&r.status!==requestFilter)return false;
+  const t=linkedMap.get(r.linked_task_id);
+  const ws=r.status==='approved'?(t&&!t.deleted_at?t.status:'unlinked'):'not_applicable';
+  return workFilter==='all'||workFilter===ws;
+ });
+ host.innerHTML=visible.map(r=>{
+  const t=linkedMap.get(r.linked_task_id);const active=t&&!t.deleted_at;
+  const work=r.status==='approved'?(active?esc(workStatusLabel[t.status]||t.status):'ยังไม่เชื่อม Task'):'—';
+  const percent=active?Math.max(0,Math.min(100,Number(t.progress)||0)):null;
+  const opts='<option value="">-- เลือก Task เพื่อเชื่อม --</option>'+tasks.map(x=>`<option value="${esc(x.id)}" ${r.linked_task_id===x.id?'selected':''}>${esc(x.title)}</option>`).join('');
+  return `<article class="request-card"><div class="row" style="justify-content:space-between"><strong>${esc(r.title)}</strong>${requestBadge(r.status)}</div>
+   <p class="muted">${esc(r.requester_name)} · ${esc(r.contact_email)} · ${esc(r.category)} · Requested ${esc(r.requested_priority)} · Due ${esc(r.requested_due_date||'—')}</p>
+   <p>${esc(r.details||'')}</p><p><strong>Task Status:</strong> ${work}${percent===null?'':` · Progress: ${percent}%`}</p>
+   ${r.status==='approved'?`<p class="muted">Approved: ${esc(r.final_priority||'—')}</p><label>เชื่อม Task ที่สร้างแล้ว <select data-link-task="${esc(r.id)}">${opts}</select></label><button type="button" class="secondary" data-save-link="${esc(r.id)}">บันทึกการเชื่อม Task</button>`:''}
+   ${r.status==='rejected'?`<p class="muted">เหตุผล: ${esc(r.review_note||'—')}</p>`:''}
+   ${r.status==='pending'?`<button data-review-request="${esc(r.id)}" class="secondary">ตรวจสอบ / อนุมัติ</button>`:''}</article>`;
+ }).join('')||'<p class="muted">ไม่พบคำขอตามตัวกรอง</p>';
+ $('requestAdminHint').classList.remove('hidden');$('requestNew').classList.add('hidden');
 }
+$('requestStatusFilter').onchange=()=>void loadTaskRequests();
+$('requestWorkFilter').onchange=()=>void loadTaskRequests();
+document.addEventListener('click',async e=>{
+ const b=e.target.closest('[data-save-link]');if(!b||profile?.role!=='admin')return;
+ const id=b.dataset.saveLink;const select=[...document.querySelectorAll('[data-link-task]')].find(x=>x.dataset.linkTask===id);
+ if(!select)return;
+ b.disabled=true;
+ try{const {error}=await db.rpc('team425_link_request_task',{p_request_id:id,p_task_id:select.value||null});if(error)throw error;await loadTaskRequests();}
+ catch(err){alert('เชื่อม Task ไม่สำเร็จ: '+err.message);b.disabled=false;}
+});
 $('requestForm').onsubmit=async e=>{
  e.preventDefault();if(profile?.role!=='admin')return;const btn=$('requestSubmit');btn.disabled=true;$('requestMsg').textContent='กำลังส่งคำขอ...';
  try{
