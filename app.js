@@ -476,9 +476,10 @@ async function loadTaskRequests(){
   const work=r.status==='approved'?(active?esc(workStatusLabel[t.status]||t.status):'ยังไม่เชื่อม Task'):'—';
   const percent=active?Math.max(0,Math.min(100,Number(t.progress)||0)):null;
   const opts='<option value="">-- เลือก Task เพื่อเชื่อม --</option>'+tasks.map(x=>`<option value="${esc(x.id)}" ${r.linked_task_id===x.id?'selected':''}>${esc(x.title)}</option>`).join('');
-  return `<article class="request-card"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px"><strong style="min-width:0;flex:1">${esc(r.title)}</strong><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0"><span style="font-size:11px;color:#64748b">Request Status</span>${requestBadge(r.status)}<span style="font-size:11px;color:#64748b">Task Status</span>${taskRequestBadge(r.status==='approved'?(active?t.status:'Not Linked'):'Not Created')}</div></div>
+  return `<article class="request-card"><div class="request-card-header"><div class="request-card-main"><strong class="request-card-title">${esc(r.title)}</strong>
    <p class="muted">${esc(r.requester_name)} · ${esc(r.contact_email)} · ${esc(r.category)} · Requested ${esc(r.requested_priority)} · Due ${esc(r.requested_due_date||'—')}</p>
-   <p>${esc(r.details||'')}</p><p><strong>Task Status:</strong> ${work}${percent===null?'':` · Progress: ${percent}%`}</p>
+   <p>${esc(r.details||'')}</p><p><strong>Task Status:</strong> ${work}${percent===null?'':` · Progress: ${percent}%`}</p></div>
+   <div class="request-card-badges"><span class="request-card-badge-label">Request Status</span>${requestBadge(r.status)}<span class="request-card-badge-label">Task Status</span>${taskRequestBadge(r.status==='approved'?(active?t.status:'Not Linked'):'Not Created')}</div></div>
    ${r.status==='approved'?`<p class="muted">Approved: ${esc(r.final_priority||'—')}</p><label>เชื่อม Task ที่สร้างแล้ว <select data-link-task="${esc(r.id)}">${opts}</select></label><button type="button" class="secondary" data-save-link="${esc(r.id)}">บันทึกการเชื่อม Task</button>`:''}
    ${r.status==='rejected'?`<p class="muted">เหตุผล: ${esc(r.review_note||'—')}</p>`:''}
    ${r.status==='pending'?`<button data-review-request="${esc(r.id)}" class="secondary">ตรวจสอบ / อนุมัติ</button>`:''}</article>`;
