@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],collaboratorsByTask=new Map(),commentTask=null,historyTask=null,month=new Date(),calendarMode="month",ganttStart="",ganttDays=14,detailTask=null,attachmentTask=null,channel=null;
+const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],collaboratorsByTask=new Map(),commentTask=null,historyTask=null,month=new Date(),calendarMode="month",ganttStart="",ganttDays=14,ganttSelectedOwners=null,detailTask=null,attachmentTask=null,channel=null;
 const dateOnly=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`};
 const today=()=>dateOnly(new Date());ganttStart=today();const show=(id,yes)=>$(id).classList.toggle('hidden',!yes);
 const msg=(s,bad=false)=>{$('notice').textContent=s;$('notice').className=bad?'error':'muted'};
@@ -27,7 +27,7 @@ const q=$('search').value.trim().toLowerCase(),f=$('filter').value,owner=$('owne
  if(ownerSelect.innerHTML!==ownerOptions){ownerSelect.innerHTML=ownerOptions;ownerSelect.value=previousOwner;if(ownerSelect.value!==previousOwner)ownerSelect.value='';}
  $('taskTable').innerHTML=table(tasks.filter(t=>(!$('v40MyTasks').checked||taskMemberIds(t).includes(user?.id))&&(!f||t.status===f)&&(!owner||(owner==='__unassigned__'?!taskMemberIds(t).length:taskMemberIds(t).includes(owner)))&&(!q||[t.title,t.description,t.category,taskOwnerLabel(t),...taskCoNames(t)].some(x=>String(x||'').toLowerCase().includes(q)))));
 $('memberTable').innerHTML=`<table><tr><th>ชื่อ</th><th>Role</th><th>สี</th><th>จัดการ</th></tr>${members.map(m=>`<tr><td>${esc(m.display_name||m.id.slice(0,8))}</td><td>${esc(m.role)}</td><td><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:${/^#[0-9a-f]{6}$/i.test(m.user_color)?m.user_color:'#2563eb'}"></span></td><td>${m.id===user?.id?'<button class="secondary" data-edit-name="1">✎ แก้ไขชื่อ</button> <button class="secondary" data-edit-color="1">🎨 เปลี่ยนสี</button>':''}</td></tr>`).join('')}</table>`;
-show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');document.querySelector('[data-view="requests"]').classList.toggle('hidden',profile?.role!=='admin');document.querySelector('[data-view="teams"]').classList.toggle('hidden',profile?.role!=='admin');v40RefreshOwnerOptions();renderCalendar();renderGantt();renderRemainingTasks();v40RenderDashboard();v40WeeklyReport();if(!$('requests').classList.contains('hidden'))void loadTaskRequests();}
+show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');document.querySelector('[data-view="admin"]').classList.toggle('hidden',profile?.role!=='admin');document.querySelector('[data-view="requests"]').classList.toggle('hidden',profile?.role!=='admin');document.querySelector('[data-view="teams"]').classList.toggle('hidden',profile?.role!=='admin');v40RefreshOwnerOptions();ganttRenderOwnerMenu();renderCalendar();renderGantt();renderRemainingTasks();v40RenderDashboard();v40WeeklyReport();if(!$('requests').classList.contains('hidden'))void loadTaskRequests();}
 
 // Dashboard charts use live tasks already loaded from Supabase. No external chart dependency.
 function renderDashboardCharts(){
@@ -105,11 +105,21 @@ async function openHistory(id){
  if(!data?.length){$('historyList').innerHTML='<p class="muted">ยังไม่มีประวัติการแก้ไขหลังติดตั้ง V3.5</p>';return;}
  $('historyList').innerHTML=data.map(h=>{const entries=Object.entries(h.changes||{}).filter(([key])=>Object.hasOwn(historyFields,key));return `<article class="history-entry"><div><strong>${esc(h.changed_by?memberName(h.changed_by):'ระบบ / ไม่ระบุผู้แก้ไข')}</strong> <span class="muted">${esc(new Date(h.changed_at).toLocaleString('th-TH'))}</span></div><table class="history-table"><thead><tr><th>รายการ</th><th>ก่อนแก้ไข</th><th>หลังแก้ไข</th></tr></thead><tbody>${entries.map(([key,v])=>`<tr><td>${esc(historyFields[key])}</td><td>${esc(historyValue(key,v.old))}</td><td>${esc(historyValue(key,v.new))}</td></tr>`).join('')}</tbody></table></article>`;}).join('');
 }
+function ganttUpdateOwnerLabel(){
+ const count=ganttSelectedOwners?.size;
+ $('ganttOwnerButton').textContent=ganttSelectedOwners===null||count===0?'ทุกคน':`เลือกแล้ว ${count} คน`;
+}
+function ganttRenderOwnerMenu(){
+ const list=$('ganttOwnerList');if(!list)return;
+ const people=members.filter(m=>m.role!=='guest');
+ list.innerHTML=people.map(m=>`<label class="v405-member-option"><input type="checkbox" value="${esc(m.id)}" ${ganttSelectedOwners===null||ganttSelectedOwners.has(m.id)?'checked':''}><span class="user-dot" style="background:${memberColor(m.id)}"></span><span>${esc(m.display_name||m.id.slice(0,8))}</span></label>`).join('');
+ ganttUpdateOwnerLabel();
+}
 function renderGantt(){
  const base=new Date(ganttStart+'T12:00:00');
  const days=Array.from({length:ganttDays},(_,i)=>{const d=new Date(base);d.setDate(base.getDate()+i);return dateOnly(d)});
  let h=`<div class="gantt-heading">Task</div>${days.map(d=>`<div class="gantt-heading">${d.slice(5)}</div>`).join('')}`;
- for(const t of tasks.filter(x=>x.start_date&&x.due_date)){
+ for(const t of tasks.filter(x=>x.start_date&&x.due_date&&(ganttSelectedOwners===null||taskMemberIds(x).some(id=>ganttSelectedOwners.has(id))))){
   const color=memberColor(t.assigned_to);
   h+=`<div class="gantt-task" data-task-detail="${esc(t.id)}" tabindex="0" role="button" title="ดูรายละเอียด ${esc(t.title)}">${colorDot(t.assigned_to)} ${esc(t.title)} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span></div>`;
   h+=days.map(d=>`<div class="${d>=t.start_date&&d<=t.due_date?'filled gantt-clickable':''}" ${d>=t.start_date&&d<=t.due_date?`data-task-detail="${esc(t.id)}" tabindex="0" role="button"`:''} style="${d>=t.start_date&&d<=t.due_date?'background:'+color:''}">${d===t.start_date?'●':''}</div>`).join('');
@@ -211,6 +221,12 @@ document.addEventListener('click',e=>{const del=e.target.closest('[data-delete-t
 $('prevMonth').onclick=()=>{const d=new Date(month);if(calendarMode==='month')d.setMonth(d.getMonth()-1);else d.setDate(d.getDate()-(calendarMode==='week'?7:1));month=d;renderCalendar()};
 $('nextMonth').onclick=()=>{const d=new Date(month);if(calendarMode==='month')d.setMonth(d.getMonth()+1);else d.setDate(d.getDate()+(calendarMode==='week'?7:1));month=d;renderCalendar()};
 $('calendarMode').onchange=e=>{calendarMode=e.target.value;renderCalendar()};
+$('ganttOwnerButton').onclick=()=>{$('ganttOwnerMenu').classList.toggle('hidden');ganttUpdateOwnerLabel();};
+$('ganttOwnerAll').onclick=()=>{ganttSelectedOwners=null;ganttRenderOwnerMenu();renderGantt();};
+$('ganttOwnerNone').onclick=()=>{ganttSelectedOwners=new Set();ganttRenderOwnerMenu();renderGantt();};
+$('ganttOwnerList').onchange=e=>{if(!e.target.matches('input[type="checkbox"]'))return;const all=members.filter(m=>m.role!=='guest').map(m=>m.id);const chosen=new Set([...$('ganttOwnerList').querySelectorAll('input:checked')].map(x=>x.value));ganttSelectedOwners=chosen.size===all.length?null:chosen;ganttUpdateOwnerLabel();renderGantt();};
+$('ganttOwnerClear').onclick=()=>{ganttSelectedOwners=null;ganttRenderOwnerMenu();renderGantt();};
+document.addEventListener('click',e=>{if(!$('ganttOwnerWidget').contains(e.target))$('ganttOwnerMenu').classList.add('hidden');});
 $('ganttStart').value=ganttStart;
 $('ganttStart').onchange=e=>{ganttStart=e.target.value||today();renderGantt()};
 $('ganttDays').onchange=e=>{ganttDays=Number(e.target.value);renderGantt()};
