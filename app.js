@@ -447,6 +447,11 @@ $('guestCalendarVisibilityToggle').onclick=async()=>{
 const requestStatusLabel={pending:'Pending Approval',approved:'Approved',rejected:'Rejected'};
 const workStatusLabel={'Pending':'Pending','In Progress':'In Progress','On Hold':'On Hold','Completed':'Completed'};
 function requestBadge(s){return `<span class="pill">${esc(requestStatusLabel[s]||s||'Unknown')}</span>`;}
+function taskRequestBadge(status){
+ const color={'Pending':'#64748b','In Progress':'#2563eb','On Hold':'#a16207','Completed':'#15803d','Not Linked':'#9a3412','Not Created':'#64748b'}[status]||'#64748b';
+ return `<span class="pill" style="background:${color};color:white;white-space:nowrap">${esc(status)}</span>`;
+}
+
 async function loadTaskRequests(){
  if(!user||profile?.role!=='admin')return;
  const host=$('requestList');host.textContent='กำลังโหลดคำขอ...';
@@ -471,7 +476,7 @@ async function loadTaskRequests(){
   const work=r.status==='approved'?(active?esc(workStatusLabel[t.status]||t.status):'ยังไม่เชื่อม Task'):'—';
   const percent=active?Math.max(0,Math.min(100,Number(t.progress)||0)):null;
   const opts='<option value="">-- เลือก Task เพื่อเชื่อม --</option>'+tasks.map(x=>`<option value="${esc(x.id)}" ${r.linked_task_id===x.id?'selected':''}>${esc(x.title)}</option>`).join('');
-  return `<article class="request-card"><div class="row" style="justify-content:space-between"><strong>${esc(r.title)}</strong>${requestBadge(r.status)}</div>
+  return `<article class="request-card"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px"><strong style="min-width:0;flex:1">${esc(r.title)}</strong><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0"><span style="font-size:11px;color:#64748b">Request Status</span>${requestBadge(r.status)}<span style="font-size:11px;color:#64748b">Task Status</span>${taskRequestBadge(r.status==='approved'?(active?t.status:'Not Linked'):'Not Created')}</div></div>
    <p class="muted">${esc(r.requester_name)} · ${esc(r.contact_email)} · ${esc(r.category)} · Requested ${esc(r.requested_priority)} · Due ${esc(r.requested_due_date||'—')}</p>
    <p>${esc(r.details||'')}</p><p><strong>Task Status:</strong> ${work}${percent===null?'':` · Progress: ${percent}%`}</p>
    ${r.status==='approved'?`<p class="muted">Approved: ${esc(r.final_priority||'—')}</p><label>เชื่อม Task ที่สร้างแล้ว <select data-link-task="${esc(r.id)}">${opts}</select></label><button type="button" class="secondary" data-save-link="${esc(r.id)}">บันทึกการเชื่อม Task</button>`:''}
