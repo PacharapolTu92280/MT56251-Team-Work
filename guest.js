@@ -87,11 +87,10 @@
       }
 
       $('guestForm').reset();
+      mtShowReceipt(data);
 
       setMsg(
-        'ส่งคำขอสำเร็จ! Request ID: ' +
-        data.requestId +
-        (data.trackingCode ? ' | Tracking Code: '+data.trackingCode+' — โปรดเก็บทั้งสองรหัสไว้เพื่อตรวจสอบสถานะ' : ' — โปรดเก็บเลขนี้ไว้สำหรับติดต่อ Admin (Tracking Code ยังไม่พร้อม)'),
+        'ส่งคำขอสำเร็จ! โปรดบันทึกใบรับคำขอด้านล่างไว้เป็นความลับ' + (data.trackingCode?'':' (Tracking Code ยังไม่พร้อม — ติดต่อ Admin)'),
         true
       );
 
@@ -104,4 +103,8 @@
     }
   });
 })();
-ห
+let mtReceiptData=null;
+function mtShowReceipt(data){const box=document.getElementById('mtReceipt');if(!box)return;mtReceiptData={requestId:String(data.requestId||''),trackingCode:String(data.trackingCode||'')};box.hidden=false;document.getElementById('mtReceiptId').textContent=mtReceiptData.requestId;document.getElementById('mtReceiptCode').textContent=mtReceiptData.trackingCode||'ยังไม่พร้อม — ติดต่อ Admin';document.getElementById('mtTrackNow').disabled=!mtReceiptData.trackingCode;}
+document.getElementById('mtCopyReceipt').onclick=async()=>{if(!mtReceiptData)return;try{await navigator.clipboard.writeText('Request ID: '+mtReceiptData.requestId+'\nTracking Code: '+mtReceiptData.trackingCode);}catch(e){alert('คัดลอกอัตโนมัติไม่สำเร็จ กรุณาเลือกข้อความแล้วคัดลอก');}};
+document.getElementById('mtDownloadReceipt').onclick=()=>{if(!mtReceiptData)return;const data='MT56251 Request Receipt\nRequest ID: '+mtReceiptData.requestId+'\nTracking Code: '+mtReceiptData.trackingCode+'\nKeep this receipt private.\n';const blob=new Blob([data],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='MT56251-Request-'+mtReceiptData.requestId.slice(0,8)+'.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+document.getElementById('mtTrackNow').onclick=()=>{if(!mtReceiptData?.trackingCode)return;document.getElementById('showGuestTracking').click();document.getElementById('trackRequestId').value=mtReceiptData.requestId;document.getElementById('trackCode').value=mtReceiptData.trackingCode;};
