@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],collaboratorsByTask=new Map(),commentTask=null,historyTask=null,month=new Date(),calendarMode="month",ganttStart="",ganttDays=14,ganttSelectedOwners=null,detailTask=null,attachmentTask=null,channel=null;
+const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],collaboratorsByTask=new Map(),commentTask=null,historyTask=null,month=new Date(),calendarMode="month",ganttStart="",ganttDays=14,ganttSelectedOwners=null,ganttSortOrder="old",detailTask=null,attachmentTask=null,channel=null;
 const dateOnly=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`};
 const today=()=>dateOnly(new Date());ganttStart=today();const show=(id,yes)=>$(id).classList.toggle('hidden',!yes);
 const msg=(s,bad=false)=>{$('notice').textContent=s;$('notice').className=bad?'error':'muted'};
@@ -115,11 +115,21 @@ function ganttRenderOwnerMenu(){
  list.innerHTML=people.map(m=>`<label class="v405-member-option"><input type="checkbox" value="${esc(m.id)}" ${ganttSelectedOwners===null||ganttSelectedOwners.has(m.id)?'checked':''}><span class="user-dot" style="background:${memberColor(m.id)}"></span><span>${esc(m.display_name||m.id.slice(0,8))}</span></label>`).join('');
  ganttUpdateOwnerLabel();
 }
+function compareGanttTitles(a,b){return String(a.title||'').localeCompare(String(b.title||''),'th',{sensitivity:'base'}) || String(a.id||'').localeCompare(String(b.id||''));}
 function renderGantt(){
  const base=new Date(ganttStart+'T12:00:00');
  const days=Array.from({length:ganttDays},(_,i)=>{const d=new Date(base);d.setDate(base.getDate()+i);return dateOnly(d)});
  let h=`<div class="gantt-heading">Task</div>${days.map(d=>`<div class="gantt-heading">${d.slice(5)}</div>`).join('')}`;
- for(const t of tasks.filter(x=>x.start_date&&x.due_date&&(ganttSelectedOwners===null||taskMemberIds(x).some(id=>ganttSelectedOwners.has(id))))){
+ const visibleTasks=tasks.filter(x=>x.start_date&&x.due_date&&(ganttSelectedOwners===null||taskMemberIds(x).some(id=>ganttSelectedOwners.has(id))));
+ // Sort by Start Date, with missing dates last (if displayed in future).
+ visibleTasks.sort((a,b)=>{
+  const ad=a.start_date||'',bd=b.start_date||'';
+  if(!ad)return bd?1:compareGanttTitles(a,b);
+  if(!bd)return -1;
+  const cmp=ad.localeCompare(bd);
+  return cmp?(ganttSortOrder==='new'?-cmp:cmp):compareGanttTitles(a,b);
+ });
+ for(const t of visibleTasks){
   const color=memberColor(t.assigned_to);
   h+=`<div class="gantt-task" data-task-detail="${esc(t.id)}" tabindex="0" role="button" title="ดูรายละเอียด ${esc(t.title)}">${colorDot(t.assigned_to)} ${esc(t.title)} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span></div>`;
   h+=days.map(d=>`<div class="${d>=t.start_date&&d<=t.due_date?'filled gantt-clickable':''}" ${d>=t.start_date&&d<=t.due_date?`data-task-detail="${esc(t.id)}" tabindex="0" role="button"`:''} style="${d>=t.start_date&&d<=t.due_date?'background:'+color:''}">${d===t.start_date?'●':''}</div>`).join('');
@@ -227,6 +237,8 @@ $('ganttOwnerNone').onclick=()=>{ganttSelectedOwners=new Set();ganttRenderOwnerM
 $('ganttOwnerList').onchange=e=>{if(!e.target.matches('input[type="checkbox"]'))return;const all=members.filter(m=>m.role!=='guest').map(m=>m.id);const chosen=new Set([...$('ganttOwnerList').querySelectorAll('input:checked')].map(x=>x.value));ganttSelectedOwners=chosen.size===all.length?null:chosen;ganttUpdateOwnerLabel();renderGantt();};
 $('ganttOwnerClear').onclick=()=>{ganttSelectedOwners=null;ganttRenderOwnerMenu();renderGantt();};
 document.addEventListener('click',e=>{if(!$('ganttOwnerWidget').contains(e.target))$('ganttOwnerMenu').classList.add('hidden');});
+$('ganttSortOrder').value=ganttSortOrder;
+$('ganttSortOrder').onchange=e=>{ganttSortOrder=e.target.value==='new'?'new':'old';renderGantt();};
 $('ganttStart').value=ganttStart;
 $('ganttStart').onchange=e=>{ganttStart=e.target.value||today();renderGantt()};
 $('ganttDays').onchange=e=>{ganttDays=Number(e.target.value);renderGantt()};
