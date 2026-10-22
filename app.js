@@ -1,8 +1,8 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id), esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],collaboratorsByTask=new Map(),commentTask=null,historyTask=null,month=new Date(),calendarMode="month",ganttStart="",ganttDays=14,ganttSelectedOwners=null,ganttSortOrder="old",detailTask=null,attachmentTask=null,channel=null;
+const cfg=window.MT_CONFIG||{};let db=null,user=null,profile=null,tasks=[],members=[],collaboratorsByTask=new Map(),commentTask=null,historyTask=null,month=new Date(),calendarMode="month",ganttStart="",ganttEnd="",ganttSelectedOwners=null,ganttSortOrder="old",detailTask=null,attachmentTask=null,channel=null;
 const dateOnly=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`};
-const today=()=>dateOnly(new Date());ganttStart=today();const show=(id,yes)=>$(id).classList.toggle('hidden',!yes);
+const today=()=>dateOnly(new Date());ganttStart=dateOnly(new Date(new Date().getFullYear(),new Date().getMonth(),1));ganttEnd=dateOnly(new Date(new Date().getFullYear(),new Date().getMonth()+2,0));const show=(id,yes)=>$(id).classList.toggle('hidden',!yes);
 const msg=(s,bad=false)=>{$('notice').textContent=s;$('notice').className=bad?'error':'muted'};
 function view(name){if(['requests','teams'].includes(name)&&profile?.role!=='admin')name='tasks';if(profile?.role==='guest')name='tasks';for(const id of ['dashboard','tasks','calendar','gantt','members','admin','requests','teams'])show(id,id===name);document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===name));render();}
 function memberColor(id){const m=members.find(x=>x.id===id);return m&&/^#[0-9a-f]{6}$/i.test(m.user_color||'')?m.user_color:'#8291a5'}
@@ -117,10 +117,14 @@ function ganttRenderOwnerMenu(){
 }
 function compareGanttTitles(a,b){return String(a.title||'').localeCompare(String(b.title||''),'th',{sensitivity:'base'}) || String(a.id||'').localeCompare(String(b.id||''));}
 function renderGantt(){
- const base=new Date(ganttStart+'T12:00:00');
- const days=Array.from({length:ganttDays},(_,i)=>{const d=new Date(base);d.setDate(base.getDate()+i);return dateOnly(d)});
+ const start=$('ganttStart').value||ganttStart,end=$('ganttEnd').value||ganttEnd;
+ const startTime=Date.parse(start+'T00:00:00Z'),endTime=Date.parse(end+'T00:00:00Z');
+ const dayCount=Math.round((endTime-startTime)/86400000)+1;
+ if(!Number.isFinite(dayCount)||dayCount<1||dayCount>366){$('ganttGrid').innerHTML='<p class="error">กรุณาเลือกช่วงวันที่ถูกต้อง (ไม่เกิน 366 วัน)</p>';return;}
+ ganttStart=start;ganttEnd=end;
+ const days=Array.from({length:dayCount},(_,i)=>new Date(startTime+i*86400000).toISOString().slice(0,10));
  let h=`<div class="gantt-heading">Task</div>${days.map(d=>`<div class="gantt-heading">${d.slice(5)}</div>`).join('')}`;
- const visibleTasks=tasks.filter(x=>x.start_date&&x.due_date&&(ganttSelectedOwners===null||taskMemberIds(x).some(id=>ganttSelectedOwners.has(id))));
+ const visibleTasks=tasks.filter(x=>x.start_date&&x.due_date&&x.start_date<=end&&x.due_date>=start&&(ganttSelectedOwners===null||taskMemberIds(x).some(id=>ganttSelectedOwners.has(id))));
  // Sort by Start Date, with missing dates last (if displayed in future).
  visibleTasks.sort((a,b)=>{
   const ad=a.start_date||'',bd=b.start_date||'';
@@ -134,7 +138,7 @@ function renderGantt(){
   h+=`<div class="gantt-task" data-task-detail="${esc(t.id)}" tabindex="0" role="button" title="ดูรายละเอียด ${esc(t.title)}">${colorDot(t.assigned_to)} ${esc(t.title)} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span></div>`;
   h+=days.map(d=>`<div class="${d>=t.start_date&&d<=t.due_date?'filled gantt-clickable':''}" ${d>=t.start_date&&d<=t.due_date?`data-task-detail="${esc(t.id)}" tabindex="0" role="button"`:''} style="${d>=t.start_date&&d<=t.due_date?'background:'+color:''}">${d===t.start_date?'●':''}</div>`).join('');
  }
- $('ganttGrid').innerHTML=`<div class="gantt" style="grid-template-columns:240px repeat(${ganttDays},minmax(34px,1fr))">${h}</div>`;
+ $('ganttGrid').innerHTML=`<div class="gantt" style="grid-template-columns:240px repeat(${dayCount},minmax(34px,1fr))">${h}</div>`;
 }
 function renderCalendarAgenda(){
  const selected=new Date(month.getFullYear(),month.getMonth(),month.getDate()),begin=new Date(selected);
@@ -240,8 +244,9 @@ document.addEventListener('click',e=>{if(!$('ganttOwnerWidget').contains(e.targe
 $('ganttSortOrder').value=ganttSortOrder;
 $('ganttSortOrder').onchange=e=>{ganttSortOrder=e.target.value==='new'?'new':'old';renderGantt();};
 $('ganttStart').value=ganttStart;
-$('ganttStart').onchange=e=>{ganttStart=e.target.value||today();renderGantt()};
-$('ganttDays').onchange=e=>{ganttDays=Number(e.target.value);renderGantt()};
+$('ganttEnd').value=ganttEnd;
+$('ganttStart').onchange=e=>{ganttStart=e.target.value||ganttStart;renderGantt()};
+$('ganttEnd').onchange=e=>{ganttEnd=e.target.value||ganttEnd;renderGantt()};
 $('closeTaskDetail').onclick=()=>{$('taskDetailDialog').close();detailTask=null};
 $('detailEdit').onclick=()=>{const id=detailTask;$('taskDetailDialog').close();detailTask=null;openTask(id)};
 $('detailAttach').onclick=()=>{const id=detailTask;$('taskDetailDialog').close();detailTask=null;void openAttachmentDialog(id)};
