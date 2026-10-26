@@ -191,7 +191,7 @@ function renderCoPicChoices(t){
  const main=$('assigned_to').value;
  $('coPicChoices').innerHTML=members.filter(m=>m.id!==main&&m.role!=='guest').map(m=>`<label class="co-pic-item"><input type="checkbox" name="co_pic" value="${esc(m.id)}" ${selected.has(m.id)?'checked':''}><span class="user-dot" style="background:${memberColor(m.id)}"></span>${esc(m.display_name||m.id.slice(0,8))}</label>`).join('');
 }
-function openTask(id){const t=tasks.find(x=>x.id===id);if(t&&!canManageTask(t)){msg('เฉพาะ Main PIC หรือ Admin เท่านั้นที่แก้ไขงานได้',true);return;}$('taskForm').reset();$('taskId').value=t?.id||'';$('dialogTitle').textContent=t?'แก้ไขงาน':'เพิ่มงาน';for(const k of ['title','description','category','status','progress','start_date','due_date','start_time','end_time'])if(t&&t[k]!=null)$(k).value=t[k];$('assigned_to').innerHTML='<option value="">ไม่ระบุ</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${m.id}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');$('assigned_to').value=t?.assigned_to||'';$('taskPriority').value=t?.priority||'P3';$('taskPriority').disabled=!['admin','member'].includes(profile?.role);$('taskPriority').title='กำหนดระดับความสำคัญของงานที่มีสิทธิ์แก้ไข';renderCoPicChoices(t);mt408SyncFromStatus();$('taskMsg').textContent='';$('taskDialog').showModal();}
+function openTask(id){const t=tasks.find(x=>x.id===id);if(t&&!canManageTask(t)){msg('เฉพาะ Main PIC หรือ Admin เท่านั้นที่แก้ไขงานได้',true);return;}$('taskForm').reset();$('taskId').value=t?.id||'';$('dialogTitle').textContent=t?'แก้ไขงาน':'เพิ่มงาน';for(const k of ['title','description','category','status','progress','start_date','due_date','start_time','end_time'])if(t&&t[k]!=null)$(k).value=t[k];$('assigned_to').innerHTML='<option value="">ไม่ระบุ</option>'+members.filter(m=>m.role!=='guest').map(m=>`<option value="${m.id}">${esc(m.display_name||m.id.slice(0,8))}</option>`).join('');$('assigned_to').value=t?.assigned_to||'';$('taskPriority').value=t?.priority||'P3';$('taskPriority').disabled=!['admin','member'].includes(profile?.role);$('taskPriority').title='กำหนดระดับความสำคัญของงานที่มีสิทธิ์แก้ไข';renderCoPicChoices(t);mt408SyncFromStatus();$('taskMsg').textContent='';$('taskDialog').showModal();mtResizeTaskDescription();}
 async function loadComments(){if(!commentTask)return;const {data,error}=await db.from('comments').select('*').eq('task_id',commentTask).order('created_at');$('commentsList').innerHTML=error?esc(error.message):(data||[]).map(c=>`<p><b>${esc(memberName(c.author_id))}</b> <small>${new Date(c.created_at).toLocaleString('th-TH')}</small><br>${esc(c.message)}</p>`).join('')||'<p class="muted">ยังไม่มีความคิดเห็น</p>';}
 async function openComments(id){commentTask=id;$('commentTitle').textContent='Comments: '+(tasks.find(t=>t.id===id)?.title||'');$('commentMsg').textContent='';$('commentsDialog').showModal();await loadComments();}
 async function boot(){if(!window.supabase||!cfg.supabaseUrl||!cfg.publishableKey||cfg.publishableKey.includes('PASTE_')){$('setupMsg').textContent='ยังไม่ได้ใส่ Publishable Key ใน config.js หรือโหลด Supabase library ไม่สำเร็จ';return}db=window.supabase.createClient(cfg.supabaseUrl,cfg.publishableKey);const {data,error}=await db.auth.getSession();if(error)console.warn(error);await signedIn(data?.session?.user||null);db.auth.onAuthStateChange((_event,session)=>{if(session?.user?.id!==user?.id)void signedIn(session?.user||null)});}
@@ -632,3 +632,13 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-toggle-lin
 boot().catch(e=>{$('setupMsg').textContent=e.message;show('setup',true)});
 })();
 
+
+
+// V4.3.2: expand the Add/Edit Task details field for long work scopes.
+function mtResizeTaskDescription(){
+ const el=document.getElementById('description');
+ if(!el)return;
+ el.style.height='200px';
+ el.style.height=Math.max(200,Math.min(el.scrollHeight+2,440))+'px';
+}
+document.getElementById('description')?.addEventListener('input',mtResizeTaskDescription);
