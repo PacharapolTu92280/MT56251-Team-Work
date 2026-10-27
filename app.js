@@ -544,7 +544,13 @@ function v40RefreshOwnerOptions(){
  v405RenderOwnerMenu();
  const cat=$('calCategory'),prev=cat.value;cat.innerHTML='<option value="">ทุกประเภท</option>'+[...new Set(tasks.map(t=>t.category).filter(Boolean))].map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');cat.value=prev;
 }
-function v40RenderDashboard(){const active=tasks.filter(t=>t.status!=='Completed');const rows=members.filter(m=>m.role!=='guest').map(m=>({name:m.display_name||m.id.slice(0,8),count:active.filter(t=>taskMemberIds(t).includes(m.id)).length})).sort((a,b)=>b.count-a.count);const max=Math.max(1,...rows.map(x=>x.count));$('v40Workload').innerHTML=rows.map(r=>`<div class="v40-work-row"><span title="${esc(r.name)}">${esc(r.name)}</span><div class="v40-work-track"><div class="v40-work-fill" style="width:${r.count/max*100}%"></div></div><strong>${r.count}</strong></div>`).join('')||'<p class="muted">ไม่มีข้อมูล</p>';
+// Workload: count only unfinished, non-deleted tasks; each member counted once per task.
+function v40WorkloadActive(t){
+ const status=String(t.status||'').trim().toLowerCase();
+ const progress=Number(t.progress);
+ return !t.deleted_at && status!=='completed' && !(Number.isFinite(progress) && progress>=100);
+}
+function v40RenderDashboard(){const active=tasks.filter(v40WorkloadActive);const rows=members.filter(m=>m.role!=='guest').map(m=>({name:m.display_name||m.id.slice(0,8),count:active.filter(t=>taskMemberIds(t).includes(m.id)).length})).sort((a,b)=>b.count-a.count);const max=Math.max(1,...rows.map(x=>x.count));$('v40Workload').innerHTML=rows.map(r=>`<div class="v40-work-row"><span title="${esc(r.name)}">${esc(r.name)}</span><div class="v40-work-track"><div class="v40-work-fill" style="width:${r.count/max*100}%"></div></div><strong>${r.count}</strong></div>`).join('')||'<p class="muted">ไม่มีข้อมูล</p>';
  $('v40Priority').innerHTML=['P1','P2','P3','P4'].map(p=>`<div class="remaining-row"><span class="v40-priority v40-${p.toLowerCase()}">${p}</span><strong>${active.filter(t=>(t.priority||'P3')===p).length}</strong></div>`).join('');}
 function v40WeekStartValue(d){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()-((x.getDay()+6)%7));return dateOnly(x);}
 function v40WeeklyItems(){const start=$('v40WeekStart').value||v40WeekStartValue(today()),d=new Date(start+'T12:00:00');d.setDate(d.getDate()+6);const end=dateOnly(d);return {start,end,items:tasks.filter(t=>{const a=t.start_date||t.due_date,b=t.due_date||t.start_date;return a&&b&&a<=end&&b>=start;})};}
