@@ -34,8 +34,8 @@ show('admin',!$('admin').classList.contains('hidden')&&profile?.role==='admin');
 
 // Dashboard charts use live tasks already loaded from Supabase. No external chart dependency.
 function renderDashboardCharts(){
- const statusOrder=['Pending','In Progress','On Hold','Completed'];
- const statusColors=['#98a2b3','#4478d7','#e7a83e','#2caa83'];
+ const statusOrder=['Pending','In Progress','On Hold','Delayed','Completed'];
+ const statusColors=['#98a2b3','#4478d7','#e7a83e','#dc6b32','#2caa83'];
  const statusCounts=statusOrder.map(s=>tasks.filter(t=>t.status===s).length);
  const max=Math.max(1,...statusCounts);
  const statusHtml=statusOrder.map((s,i)=>`<div class="status-chart-row"><span>${esc(s)}</span><div class="status-track"><div class="status-fill" style="width:${100*statusCounts[i]/max}%;background:${statusColors[i]}"></div></div><strong>${statusCounts[i]}</strong></div>`).join('');
@@ -205,6 +205,7 @@ $('logout').onclick=()=>db.auth.signOut();document.querySelectorAll('#nav button
 // V4.0.8: status/progress stay consistent in both directions.
 function mt408SyncFromStatus(){
  if($('status').value==='Completed') $('progress').value='100';
+ else if($('status').value==='Delayed' && Number($('progress').value)>=100) $('progress').value='99';
 }
 function mt408SyncFromProgress(){
  const field=$('progress');
@@ -445,10 +446,10 @@ $('guestCalendarVisibilityToggle').onclick=async()=>{
 
 // V3.9: Guest requests, review, priority and rank. All writes use server-checked RPCs.
 const requestStatusLabel={pending:'Pending Approval',approved:'Approved',rejected:'Rejected'};
-const workStatusLabel={'Pending':'Pending','In Progress':'In Progress','On Hold':'On Hold','Completed':'Completed'};
+const workStatusLabel={'Pending':'Pending','In Progress':'In Progress','On Hold':'On Hold','Delayed':'Delayed','Completed':'Completed'};
 function requestBadge(s){return `<span class="pill">${esc(requestStatusLabel[s]||s||'Unknown')}</span>`;}
 function taskRequestBadge(status){
- const color={'Pending':'#64748b','In Progress':'#2563eb','On Hold':'#a16207','Completed':'#15803d','Not Linked':'#9a3412','Not Created':'#64748b'}[status]||'#64748b';
+ const color={'Pending':'#64748b','In Progress':'#2563eb','On Hold':'#a16207','Delayed':'#c2410c','Completed':'#15803d','Not Linked':'#9a3412','Not Created':'#64748b'}[status]||'#64748b';
  return `<span class="pill" style="background:${color};color:white;white-space:nowrap">${esc(status)}</span>`;
 }
 
