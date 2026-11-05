@@ -270,15 +270,12 @@ document.addEventListener('click',e=>{const d=e.target.closest('[data-task-detai
 document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const d=e.target.closest('[data-task-detail]');if(d){e.preventDefault();openTaskDetail(d.dataset.taskDetail)}}});
 $('export').onclick=()=>{const cols=['title','description','category','status','progress','start_date','start_time','due_date','end_time','assigned_to','created_at'];const csv='\ufeff'+[cols.join(','),...tasks.map(t=>cols.map(k=>'"'+String(t[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='MT56251_Tasks_'+today()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 
-// Delete requires a fresh admin password verification on the server, never a publishable key.
+// Delete uses authenticated session and server-side role/Main PIC checks.
 let pendingDeleteTaskId=null;
 function openDeleteTask(id){
   const t=tasks.find(x=>x.id===id);if(!t||!canManageTask(t))return;
   pendingDeleteTaskId=id;
   $('deleteTaskTitle').textContent=t.title;
-  $('deleteTaskPassword').value='';
-  $('deleteTaskPassword').required=profile?.role==='admin';
-  $('deletePasswordWrap').classList.toggle('hidden',profile?.role!=='admin');
   $('deleteTaskMsg').textContent='';
   $('deleteTaskDialog').showModal();
 }
@@ -286,7 +283,6 @@ $('cancelDeleteTask').onclick=()=>{$('deleteTaskDialog').close();pendingDeleteTa
 $('deleteTaskForm').onsubmit=async e=>{
   e.preventDefault();
   if(!pendingDeleteTaskId||!canManageTask(tasks.find(t=>t.id===pendingDeleteTaskId)))return;
-  const password=profile?.role==='admin'?$('deleteTaskPassword').value:'';
   $('deleteTaskMsg').textContent='กำลังตรวจสอบสิทธิ์และย้ายงานไปถังขยะ...';
   const btn=$('confirmDeleteTask');btn.disabled=true;
   try{
@@ -294,14 +290,14 @@ $('deleteTaskForm').onsubmit=async e=>{
     if(error||!session?.access_token)throw Error('กรุณา Login ใหม่');
     const resp=await fetch(cfg.supabaseUrl.replace(/\/$/,'')+'/functions/v1/team-delete-task',{
       method:'POST',headers:{'Content-Type':'application/json','apikey':cfg.publishableKey,'Authorization':'Bearer '+session.access_token},
-      body:JSON.stringify({taskId:pendingDeleteTaskId,password})
+      body:JSON.stringify({taskId:pendingDeleteTaskId})
     });
     const result=await resp.json().catch(()=>({error:'Server response ไม่ถูกต้อง'}));
     if(!resp.ok)throw Error(result.error||'Delete failed ('+resp.status+')');
     $('deleteTaskDialog').close();pendingDeleteTaskId=null;
     await refresh();msg('ย้ายงานไปถังขยะสำเร็จ');
   }catch(err){$('deleteTaskMsg').textContent=err.message;}
-  finally{$('deleteTaskPassword').value='';btn.disabled=false;}
+  finally{btn.disabled=false;}
 };
 
 // Admin actions are authorized again on the server. Never put a secret key in this file.
