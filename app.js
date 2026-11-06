@@ -15,7 +15,7 @@ function taskMemberIds(t){return [...new Set([t.assigned_to,...taskCoIds(t)].fil
 function taskOwnerLabel(t){return t.assigned_to ? memberName(t.assigned_to) : 'ยังไม่ระบุผู้รับผิดชอบ'}
 function memberName(id){const m=members.find(x=>x.id===id);return m?m.display_name||m.id.slice(0,8):'—'}
 function canManageTask(t){return profile?.role==='admin'||(profile?.role==='member'&&t.assigned_to===user?.id)}
-function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="v40-priority ${v40PriorityClass(t)}">${esc(t.priority)}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><div class="mt-task-actions"><button type="button" class="secondary" data-task-detail="${esc(t.id)}">Details</button>${canManageTask(t)?`<button type="button" class="secondary" data-edit="${esc(t.id)}">Edit</button>`:''}<details><summary>⋯ More</summary><div class="mt-task-menu"><button type="button" class="secondary" data-comment="${esc(t.id)}">Comments</button><button type="button" class="secondary" data-history="${esc(t.id)}">History</button>${canManageTask(t)?`<button type="button" class="secondary" data-attachment-task="${esc(t.id)}">Attachment</button><button type="button" class="secondary" data-priority-task="${esc(t.id)}">Priority</button><button type="button" class="danger" data-delete-task="${esc(t.id)}">Delete</button>`:''}</div></details></div></td></tr>`).join('')}</tbody></table>`}
+function table(items){return `<table><thead><tr><th>งาน</th><th>ประเภท</th><th>สถานะ</th><th>Progress</th><th>ผู้รับผิดชอบ</th><th>Due</th><th>จัดการ</th></tr></thead><tbody>${items.map(t=>`<tr><td><b>${esc(t.title)}</b> ${t.priority?`<span class="v40-priority ${v40PriorityClass(t)}">${esc(t.priority)}</span>`:''} <span class="task-owner-inline">(${esc(taskTeamLabel(t))})</span><div class="muted">${esc(t.description).slice(0,120)}</div></td><td>${esc(t.category)}</td><td><span class="pill">${esc(t.status)}</span></td><td>${t.progress}%<div class="bar"><span style="width:${Number(t.progress)||0}%"></span></div></td><td>${colorDot(t.assigned_to)} ${esc(memberName(t.assigned_to))}</td><td>${esc(t.due_date||'—')}${t.end_time?' '+esc(String(t.end_time).slice(0,5)):''}</td><td><div class="mt-task-actions"><button type="button" class="secondary" data-task-detail="${esc(t.id)}">Details</button>${canManageTask(t)?`<button type="button" class="secondary" data-edit="${esc(t.id)}">Edit</button>`:''}<details><summary>⋯ More</summary><div class="mt-task-menu"><button type="button" class="secondary" data-comment="${esc(t.id)}">Comments</button><button type="button" class="secondary" data-history="${esc(t.id)}">History</button>${canManageTask(t)?`<button type="button" class="secondary" data-attachment-task="${esc(t.id)}">Attachment</button><button type="button" class="secondary" data-priority-task="${esc(t.id)}">Priority</button>${profile?.role==='admin'?`<button type="button" class="danger" data-delete-task="${esc(t.id)}">Delete</button>`:''}`:''}</div></details></div></td></tr>`).join('')}</tbody></table>`}
 let mtDashboardScope='all';
 const mtStatusValues=['Pending','In Progress','On Hold','Delayed','Completed'];
 const mtIsUnfinished=t=>t.status!=='Completed' && Number(t.progress||0)<100 && !t.deleted_at;
@@ -276,7 +276,7 @@ $('export').onclick=()=>{const cols=['title','description','category','status','
 // Delete uses authenticated session and server-side role/Main PIC checks.
 let pendingDeleteTaskId=null;
 function openDeleteTask(id){
-  const t=tasks.find(x=>x.id===id);if(!t||!canManageTask(t))return;
+  const t=tasks.find(x=>x.id===id);if(!t||profile?.role!=='admin')return;
   pendingDeleteTaskId=id;
   $('deleteTaskTitle').textContent=t.title;
   $('deleteTaskMsg').textContent='';
@@ -285,7 +285,7 @@ function openDeleteTask(id){
 $('cancelDeleteTask').onclick=()=>{$('deleteTaskDialog').close();pendingDeleteTaskId=null;};
 $('deleteTaskForm').onsubmit=async e=>{
   e.preventDefault();
-  if(!pendingDeleteTaskId||!canManageTask(tasks.find(t=>t.id===pendingDeleteTaskId)))return;
+  if(!pendingDeleteTaskId||profile?.role!=='admin')return;
   $('deleteTaskMsg').textContent='กำลังตรวจสอบสิทธิ์และย้ายงานไปถังขยะ...';
   const btn=$('confirmDeleteTask');btn.disabled=true;
   try{
