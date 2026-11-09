@@ -33,3 +33,58 @@ html[data-theme="dark"] .error{color:#ff8999!important}html[data-theme="dark"] .
 header .mt-header-actions{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
 header .mt-header-actions .mt-theme-toggle{margin-left:0;}
 @media(max-width:700px){header .mt-header-actions{width:100%;justify-content:flex-end;}header .mt-header-actions #identity{margin-right:auto;}}
+
+
+/* V4.3.10: fix dark-theme controls missed by the generic button rules. */
+html[data-theme="dark"] .mt-task-actions summary {
+  background:#303e51!important;
+  color:#f1f5fa!important;
+  border:1px solid #4a5a70!important;
+  box-shadow:none!important;
+}
+html[data-theme="dark"] .mt-task-actions summary:hover,
+html[data-theme="dark"] .mt-task-actions details[open] > summary {
+  background:#40526a!important;
+  color:#fff!important;
+}
+html[data-theme="dark"] .mt-task-actions summary:focus-visible {
+  outline:2px solid #ff6b86;
+  outline-offset:2px;
+}
+html[data-theme="dark"] .mt-task-actions .mt-task-menu {
+  background:#243144!important;
+  border-color:#4a5a70!important;
+  color:#f1f5fa!important;
+  box-shadow:0 10px 24px #0008!important;
+}
+html[data-theme="dark"] .mt-task-actions .mt-task-menu button,
+html[data-theme="dark"] .mt-task-actions .mt-task-menu button.secondary {
+  background:#303e51!important;
+  color:#f1f5fa!important;
+  border:1px solid #4a5a70!important;
+  opacity:1!important;
+}
+html[data-theme="dark"] .mt-task-actions .mt-task-menu button:hover {
+  background:#40526a!important;
+}
+html[data-theme="dark"] #admin .guest-global-setting {
+  background:#1c2737!important;
+  color:#f1f5fa!important;
+  border:1px solid #394759!important;
+  border-left:4px solid #d7193f!important;
+}
+html[data-theme="dark"] #admin .guest-global-setting h3 {
+  color:#f1f5fa!important;
+}
+html[data-theme="dark"] #admin .guest-global-setting p,
+html[data-theme="dark"] #admin .guest-global-setting .muted {
+  color:#bfcada!important;
+}
+html[data-theme="dark"] #admin .guest-global-setting button {
+  background:#303e51!important;
+  color:#f1f5fa!important;
+  border:1px solid #4a5a70!important;
+}
+html[data-theme="dark"] #admin .guest-global-setting button:hover {
+  background:#40526a!important;
+}
