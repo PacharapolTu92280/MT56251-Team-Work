@@ -28,3 +28,8 @@ html[data-theme="dark"] .v405-owner-menu,html[data-theme="dark"] .mt-task-menu{b
 html[data-theme="dark"] .guest-task{background:#4a2838!important;color:#ffd9e1!important}
 html[data-theme="dark"] .error{color:#ff8999!important}html[data-theme="dark"] .success,html[data-theme="dark"] .ok{color:#78e3ad!important}
 /* Preserve custom member colors, status badges and priority colors. */
+
+/* V4.3.9: keep account controls and theme switch aligned at right. */
+header .mt-header-actions{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;}
+header .mt-header-actions .mt-theme-toggle{margin-left:0;}
+@media(max-width:700px){header .mt-header-actions{width:100%;justify-content:flex-end;}header .mt-header-actions #identity{margin-right:auto;}}
