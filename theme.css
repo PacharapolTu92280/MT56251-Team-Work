@@ -1,0 +1,30 @@
+/* MT56251 V4.3.8: user-selectable dark theme. No data/API changes. */
+.mt-theme-toggle{border:1px solid #9ca3af!important;border-radius:8px!important;padding:8px 12px!important;background:#f0f1f4!important;color:#252b34!important;font-size:13px!important;white-space:nowrap;cursor:pointer;box-shadow:none!important}
+.mt-theme-toggle:focus-visible{outline:3px solid #d7193f;outline-offset:2px}
+html[data-theme="dark"]{color-scheme:dark;--murata-dark:#e8edf6;--murata-line:#384455;--murata-soft:#3c2632;background:#101722;color:#e8edf6}
+html[data-theme="dark"] body{background:#101722!important;color:#e8edf6!important}
+html[data-theme="dark"] header{background:#192333!important;color:#f1f5fa!important;border-bottom-color:#344153!important}
+html[data-theme="dark"] header h1,html[data-theme="dark"] h2,html[data-theme="dark"] h3,html[data-theme="dark"] h4{color:#f1f5fa!important}
+html[data-theme="dark"] section,html[data-theme="dark"] .panel,html[data-theme="dark"] main:has(#guestRequestView),html[data-theme="dark"] .metric,html[data-theme="dark"] .chart-card,html[data-theme="dark"] .remaining-panel,html[data-theme="dark"] dialog,html[data-theme="dark"] .notif-panel,html[data-theme="dark"] .notif-item,html[data-theme="dark"] .history-entry,html[data-theme="dark"] .mt-receipt,html[data-theme="dark"] .request-card,html[data-theme="dark"] .teams41-item{background:#1c2737!important;color:#e8edf6!important;border-color:#394759!important}
+html[data-theme="dark"] main{color:#e8edf6}
+html[data-theme="dark"] .metric strong,html[data-theme="dark"] .remaining-panel h3,html[data-theme="dark"] .chart-card h3{color:#f1f5fa!important}
+html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:#131e2d!important;color:#f1f5fa!important;border-color:#506075!important}
+html[data-theme="dark"] input::placeholder,html[data-theme="dark"] textarea::placeholder{color:#aab6c6}
+html[data-theme="dark"] label,html[data-theme="dark"] .muted,html[data-theme="dark"] .hint,html[data-theme="dark"] .metric small,html[data-theme="dark"] .color-help,html[data-theme="dark"] .task-owner-inline,html[data-theme="dark"] .notif-item small{color:#b5c1d1!important}
+html[data-theme="dark"] th,html[data-theme="dark"] .gantt-heading{background:#273448!important;color:#f1f5fa!important;border-color:#435169!important}
+html[data-theme="dark"] td,html[data-theme="dark"] tr,html[data-theme="dark"] nav,html[data-theme="dark"] .remaining-row{border-color:#394759!important}
+html[data-theme="dark"] tr:hover td{background:#2a3749!important}
+html[data-theme="dark"] button.secondary,html[data-theme="dark"] .back,html[data-theme="dark"] .guest-tab:not(.active),html[data-theme="dark"] nav button:not(.active),html[data-theme="dark"] .pill{background:#303e51!important;color:#f1f5fa!important;border-color:#4a5a70!important}
+html[data-theme="dark"] button.secondary:hover,html[data-theme="dark"] nav button:not(.active):hover{background:#40526a!important}
+html[data-theme="dark"] .mt-theme-toggle{background:#344257!important;color:#fff!important;border-color:#64748b!important}
+html[data-theme="dark"] .day,html[data-theme="dark"] .guest-cal-day,html[data-theme="dark"] .agenda-day{background:#1e2a3a!important;color:#e8edf6!important;border-color:#46546a!important}
+html[data-theme="dark"] .day.outside,html[data-theme="dark"] .guest-cal-day.outside{background:#162130!important;color:#a5b1c1!important}
+html[data-theme="dark"] .day.mt403-today,html[data-theme="dark"] .guest-cal-day.mt403-guest-today{background:#402633!important;border-color:#f04465!important}
+html[data-theme="dark"] .gantt>div:not(.filled),html[data-theme="dark"] .status-track,html[data-theme="dark"] .bar,html[data-theme="dark"] .v40-work-track{background:#2a3749!important;color:#e8edf6!important}
+html[data-theme="dark"] .donut-hole{background:#1c2737!important;color:#f1f5fa!important}
+html[data-theme="dark"] .notif-item.unread{background:#3c2939!important}
+html[data-theme="dark"] .notif-item:hover{background:#354358!important}
+html[data-theme="dark"] .v405-owner-menu,html[data-theme="dark"] .mt-task-menu{background:#243144!important;color:#e8edf6!important;border-color:#46546a!important}
+html[data-theme="dark"] .guest-task{background:#4a2838!important;color:#ffd9e1!important}
+html[data-theme="dark"] .error{color:#ff8999!important}html[data-theme="dark"] .success,html[data-theme="dark"] .ok{color:#78e3ad!important}
+/* Preserve custom member colors, status badges and priority colors. */
