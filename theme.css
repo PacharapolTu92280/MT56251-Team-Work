@@ -88,3 +88,32 @@ html[data-theme="dark"] #admin .guest-global-setting button {
 html[data-theme="dark"] #admin .guest-global-setting button:hover {
   background:#40526a!important;
 }
+
+/* V4.3.11: Co-PIC selection palette for Add/Edit Task. */
+html[data-theme="dark"] #taskDialog #coPicChoices.co-pic-list {
+  background:#172333!important;
+  color:#f1f5fa!important;
+  border:1px solid #506075!important;
+  color-scheme:dark;
+}
+html[data-theme="dark"] #taskDialog #coPicChoices .co-pic-item {
+  color:#edf2f9!important;
+  background:transparent!important;
+  border-radius:6px;
+  opacity:1!important;
+}
+html[data-theme="dark"] #taskDialog #coPicChoices .co-pic-item:hover,
+html[data-theme="dark"] #taskDialog #coPicChoices .co-pic-item:focus-within {
+  background:#304158!important;
+}
+html[data-theme="dark"] #taskDialog #coPicChoices .co-pic-item:has(input:checked) {
+  background:#28394f!important;
+}
+html[data-theme="dark"] #taskDialog #coPicChoices input[type="checkbox"] {
+  accent-color:#d7193f!important;
+  background-color:#131e2d!important;
+  border-color:#64748b!important;
+}
+html[data-theme="dark"] #taskDialog #coPicChoices .user-dot {
+  opacity:1!important;
+}
