@@ -117,3 +117,17 @@ html[data-theme="dark"] #taskDialog #coPicChoices input[type="checkbox"] {
 html[data-theme="dark"] #taskDialog #coPicChoices .user-dot {
   opacity:1!important;
 }
+
+/* V4.3.12: Weekly Report summary badges in dark theme. */
+html[data-theme="dark"] #tasks .v40-summary-cards span {
+  background:#2b3b50!important;
+  color:#f1f5fa!important;
+  border:1px solid #43546b!important;
+  border-radius:6px;
+  opacity:1!important;
+}
+html[data-theme="dark"] #tasks .v40-summary-cards span b,
+html[data-theme="dark"] #tasks .v40-summary-cards span strong {
+  color:#fff!important;
+  opacity:1!important;
+}
