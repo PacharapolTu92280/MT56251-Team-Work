@@ -271,7 +271,39 @@ $('attachmentForm').onsubmit=async e=>{e.preventDefault();const file=$('attachme
 };
 document.addEventListener('click',e=>{const d=e.target.closest('[data-task-detail]');if(d)openTaskDetail(d.dataset.taskDetail);const a=e.target.closest('[data-attachment-task]');if(a)void openAttachmentDialog(a.dataset.attachmentTask);const f=e.target.closest('[data-attachment-open]');if(f)void openAttachment(f.dataset.attachmentOpen).catch(err=>alert(err.message));});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const d=e.target.closest('[data-task-detail]');if(d){e.preventDefault();openTaskDetail(d.dataset.taskDetail)}}});
-$('export').onclick=()=>{const cols=['title','description','category','status','progress','start_date','start_time','due_date','end_time','assigned_to','created_at'];const csv='\ufeff'+[cols.join(','),...tasks.map(t=>cols.map(k=>'"'+String(t[k]??'').replace(/"/g,'""')+'"').join(','))].join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='MT56251_Tasks_'+today()+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+// Export exactly the tasks shown by the current Tasks filters, including Main PIC / Co-PIC.
+function mtExportVisibleTasks(){
+  const q=$('search').value.trim().toLowerCase();
+  const status=$('filter').value;
+  const owner=$('ownerFilter').value;
+  return tasks.filter(t=>
+    (!mtTaskOverdueOnly||(t.due_date&&t.due_date<today()&&t.status!=='Completed')) &&
+    (!$('v40MyTasks').checked||taskMemberIds(t).includes(user?.id)) &&
+    (!status||t.status===status) &&
+    (!owner||(owner==='__unassigned__'?!taskMemberIds(t).length:taskMemberIds(t).includes(owner))) &&
+    (!q||[t.title,t.description,t.category,taskOwnerLabel(t),...taskCoNames(t)].some(x=>String(x||'').toLowerCase().includes(q)))
+  );
+}
+function mtExportCell(v){
+  const raw=String(v??'');
+  // Protect spreadsheet users against formula injection from user-entered task text.
+  const safe=/^[\s]*[=+@\-]/.test(raw)?"'"+raw:raw;
+  return '"'+safe.replace(/"/g,'""')+'"';
+}
+$('export').onclick=()=>{
+  const selected=$('ownerFilter').value;
+  const owner=members.find(m=>m.id===selected);
+  const rows=mtExportVisibleTasks();
+  if(!rows.length){msg('ไม่พบงานตามตัวกรองสำหรับ Export',true);return;}
+  const columns=['Task Title','Details','Category','Status','Priority','Progress (%)','Main PIC','Co-PIC','Start Date','Start Time','Due Date','End Time','Created At'];
+  const values=rows.map(t=>[t.title,t.description,t.category,t.status,t.priority||'P3',t.progress,taskOwnerLabel(t),taskCoNames(t).join('; '),t.start_date,t.start_time,t.due_date,t.end_time,t.created_at]);
+  const csv='\ufeff'+[columns,...values].map(row=>row.map(mtExportCell).join(',')).join('\r\n');
+  const safeName=owner?String(owner.display_name||'member').replace(/[^a-zA-Z0-9_-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,48):selected==='__unassigned__'?'Unassigned':'All_Members';
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  const a=document.createElement('a');a.href=url;a.download='MT56251_Tasks_'+(safeName||'Member')+'_'+today()+'.csv';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  msg('Export '+rows.length+' งาน'+(owner?' ของ '+(owner.display_name||'สมาชิก'):'')+' สำเร็จ');
+};
 
 // Delete uses authenticated session and server-side role/Main PIC checks.
 let pendingDeleteTaskId=null;
